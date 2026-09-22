@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Center BMKG - APT PRANOTO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+        .view-hidden { display: none !important; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        canvas { max-height: 300px; }
+    </style>
+    <!-- LEAFLET.JS UNTUK PETA INTERAKTIF ARG -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen font-sans overflow-x-hidden flex flex-col">
+
+    <div id="sidebar" class="fixed top-0 right-0 h-full w-72 bg-slate-800 shadow-2xl z-50 transform translate-x-full sidebar-transition border-l border-slate-700">
+        <div class="p-6">
+            
+            <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                <div class="flex items-center space-x-3">
+                    <img src="https://www.bmkg.go.id/asset/img/logo/logo-bmkg.png" alt="Logo BMKG" class="h-10 drop-shadow-md">
+                    <span class="text-2xl font-bold text-white tracking-widest">BMKG</span>
+                </div>
+                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            
+            <h3 class="text-lg font-bold text-blue-400 mb-6 uppercase tracking-wider">MENU DATA</h3>
+            
+            <nav class="space-y-6">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Monitor Utama</p>
+                    <button onclick="switchView('realtime')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                        <i class="fa-solid fa-gauge-high w-6"></i><span>Real-time Dashboard</span>
+                    </button>
+                </div>
+                <button onclick="switchView('arg')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all mt-4">
+                    <i class="fa-solid fa-cloud-showers-water w-6"></i><span>Jaringan ARG</span>
+                </button>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analisis Tren (Grafik)</p>
+                    <div class="space-y-4 pl-2">
+                        <button onclick="switchView('trend_awos')" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
+                            <i class="fa-solid fa-plane w-6"></i><span>Tren AWOS</span>
+                        </button>
+                        <button onclick="switchView('trend_aws')" class="flex items-center space-x-3 text-slate-300 hover:text-yellow-400 w-full transition-all">
+                            <i class="fa-solid fa-cloud-sun w-6"></i><span>Tren AWS</span>
+                        </button>
+                        <button onclick="switchView('trend_bam')" class="flex items-center space-x-3 text-slate-300 hover:text-purple-400 w-full transition-all">
+                            <i class="fa-solid fa-industry w-6"></i><span>Tren BAM</span>
+                        </button>
+                        <button onclick="switchView('trend_arg')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                            <i class="fa-solid fa-chart-area w-6"></i><span>Tren ARG</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <header class="flex justify-between items-start md:items-center p-4 md:p-6 border-b border-slate-700 shrink-0">
+        <div class="flex flex-col">
+            <span id="jam_tanggal" class="text-slate-400 font-mono text-sm md:text-base">--:--:-- | --</span>
+            <h2 id="view_title" class="text-xs font-bold text-blue-400 uppercase tracking-[0.3em] mt-1">Live Monitor</h2>
+        </div>
+        
+        <div class="text-center absolute left-1/2 -translate-x-1/2 hidden lg:block">
+            <h1 class="text-2xl md:text-3xl font-bold tracking-widest text-blue-400 drop-shadow-md">STASIUN METEOROLOGI APT PRANOTO</h1>
+        </div>
+
+        <div class="flex items-center space-x-4 z-40">
+            <button onclick="toggleSidebar()" class="group flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 p-2 pr-4 rounded-lg border border-slate-700 transition-all shadow-lg">
+                <i class="fa-solid fa-chevron-left text-slate-400 group-hover:text-white transition-transform duration-300" id="arrow_icon"></i>
+                <img src="https://www.bmkg.go.id/asset/img/logo/logo-bmkg.png" alt="Logo BMKG" class="h-8 md:h-10 drop-shadow-md">
+            </button>
+        </div>
+    </header>
+
+    <main class="p-4 md:p-6 flex-1 overflow-y-auto">
+        
+        <div id="view_realtime" class="w-full max-w-[1800px] mx-auto flex flex-col gap-6">
+            
+            <div class="grid grid-cols-12 gap-4 items-start border-b border-slate-700/50 pb-2">
+                <div class="col-span-5 flex flex-col items-start">
+                    <h2 class="text-xl font-bold text-green-400 uppercase tracking-wider">✈️ AWOS Penerbangan</h2>
+                    <span class="text-[10px] text-slate-400 mt-1 hidden md:block">Update: <span id="awos_update" class="text-green-300">--</span></span>
+                </div>
+                <div class="col-span-2 text-center flex flex-col items-center">
+                    <h2 class="text-xl font-bold text-purple-400 uppercase tracking-wider">🏭 KUALITAS UDARA</h2>
+                    <span class="text-[10px] text-slate-400 mt-1">Update: <span id="bam_waktu" class="text-purple-300">--</span></span>
+                </div>
+                <div class="col-span-5 text-right flex flex-col items-end">
+                    <h2 class="text-xl font-bold text-yellow-400 uppercase tracking-wider">🌦️ AWS DIGI</h2>
+                    <span class="text-[10px] text-slate-400 mt-1 hidden md:block">Update: <span id="aws_update" class="text-yellow-300">--</span></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+                <div class="col-span-2 flex flex-col gap-4">
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Suhu</span><div class="flex items-end"><span id="awos_suhu" class="text-3xl font-bold text-green-300">--</span><span class="text-sm ml-1 text-green-300">°C</span></div></div>
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Kelembapan</span><div class="flex items-end"><span id="awos_rh" class="text-3xl font-bold text-green-300">--</span><span class="text-sm ml-1 text-green-300">%</span></div></div>
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Dew Point</span><div class="flex items-end"><span id="awos_dewpoint" class="text-3xl font-bold text-green-300">--</span><span class="text-sm ml-1 text-green-300">°C</span></div></div>
+                </div>
+                <div class="col-span-3 flex flex-col items-center justify-center relative py-4">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Angin AWOS</span>
+                    <div class="relative w-56 h-56 rounded-full border-4 border-slate-600 flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.3)]">
+                        <span class="absolute top-2 text-sm font-bold text-slate-500">N</span><span class="absolute bottom-2 text-sm font-bold text-slate-500">S</span><span class="absolute right-3 text-sm font-bold text-slate-500">E</span><span class="absolute left-3 text-sm font-bold text-slate-500">W</span>
+                        <div class="flex flex-col items-center z-10"><span id="awos_angin_kec" class="text-6xl font-bold text-green-300 drop-shadow-lg">--</span><span class="text-sm text-slate-400 mt-1">kt</span></div>
+                        <div id="awos_angin_jarum" class="absolute w-full h-full transition-transform duration-700 ease-out" style="transform: rotate(0deg);"><div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-3 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[28px] border-b-yellow-400 drop-shadow-xl"></div></div>
+                    </div>
+                    <div class="mt-8 text-sm text-slate-400 font-medium bg-slate-800/80 px-5 py-2 rounded-full border border-slate-600 shadow-md">Arah: <span id="awos_angin_arah" class="text-2xl font-bold text-green-300 ml-1">--</span>°</div>
+                </div>
+                <div class="col-span-2 flex flex-col gap-4 border-x border-slate-700/50 px-2 lg:px-4">
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 text-center">PM 2.5 (BAM)</span><div class="flex items-end"><span id="bam_pm25" class="text-5xl font-bold text-purple-400">--</span><span class="text-sm ml-1 text-purple-400">µg/m³</span></div></div>
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 text-center">Flow Rate</span><div class="flex items-end"><span id="bam_flow" class="text-4xl font-bold text-purple-400">--</span><span class="text-sm ml-1 text-purple-400">lpm</span></div></div>
+                </div>
+                <div class="col-span-3 flex flex-col items-center justify-center relative py-4">
+                    <span class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Angin AWS</span>
+                    <div class="relative w-56 h-56 rounded-full border-4 border-slate-600 flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.3)]">
+                        <span class="absolute top-2 text-sm font-bold text-slate-500">N</span><span class="absolute bottom-2 text-sm font-bold text-slate-500">S</span><span class="absolute right-3 text-sm font-bold text-slate-500">E</span><span class="absolute left-3 text-sm font-bold text-slate-500">W</span>
+                        <div class="flex flex-col items-center z-10"><span id="aws_angin_kec" class="text-6xl font-bold text-blue-400 drop-shadow-lg">--</span><span class="text-sm text-slate-400 mt-1">kt</span></div>
+                        <div id="aws_angin_jarum" class="absolute w-full h-full transition-transform duration-700 ease-out" style="transform: rotate(0deg);"><div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-3 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[28px] border-b-red-500 drop-shadow-xl"></div></div>
+                    </div>
+                    <div class="mt-8 text-sm text-slate-400 font-medium bg-slate-800/80 px-5 py-2 rounded-full border border-slate-600 shadow-md">Arah: <span id="aws_angin_arah" class="text-2xl font-bold text-blue-400 ml-1">--</span>°</div>
+                </div>
+                <div class="col-span-2 flex flex-col gap-4">
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Suhu</span><div class="flex items-end"><span id="aws_suhu" class="text-3xl font-bold text-blue-400">--</span><span class="text-sm ml-1 text-blue-400">°C</span></div></div>
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Kelembapan</span><div class="flex items-end"><span id="aws_rh" class="text-3xl font-bold text-blue-400">--</span><span class="text-sm ml-1 text-blue-400">%</span></div></div>
+                    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-md h-full"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Dew Point</span><div class="flex items-end"><span id="aws_dewpoint" class="text-3xl font-bold text-blue-400">--</span><span class="text-sm ml-1 text-blue-400">°C</span></div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-2">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">QNH (AWOS)</span><div class="flex items-end"><span id="awos_qnh" class="text-2xl font-bold text-green-300">--</span><span class="text-xs ml-1 text-green-300">mb</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Hujan (AWOS)</span><div class="flex items-end"><span id="awos_hujan" class="text-2xl font-bold text-green-300">--</span><span class="text-xs ml-1 text-green-300">mm</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Density Alt (AWOS)</span><div class="flex items-end"><span id="awos_density" class="text-2xl font-bold text-green-300">--</span><span class="text-xs ml-1 text-green-300">ft</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Tekanan (AWS)</span><div class="flex items-end"><span id="aws_tekanan" class="text-2xl font-bold text-blue-400">--</span><span class="text-xs ml-1 text-blue-400">mb</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">QNH (AWS)</span><div class="flex items-end"><span id="aws_qnh" class="text-2xl font-bold text-blue-400">--</span><span class="text-xs ml-1 text-blue-400">mb</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Visibility (AWOS)</span><div class="flex items-end"><span id="awos_vis" class="text-2xl font-bold text-green-300">--</span><span class="text-xs ml-1 text-green-300">m</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Sky Cond (AWOS)</span><span id="awos_sky" class="text-xl font-bold text-green-300 leading-tight">--</span></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Hujan (AWS)</span><div class="flex items-end"><span id="aws_hujan" class="text-2xl font-bold text-blue-400">--</span><span class="text-xs ml-1 text-blue-400">mm</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Evaporasi (AWS)</span><div class="flex items-end"><span id="aws_evaporasi" class="text-2xl font-bold text-blue-400">--</span><span class="text-xs ml-1 text-blue-400">mm</span></div></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center justify-center"><span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Radiasi (AWS)</span><div class="flex items-end"><span id="aws_radiasi" class="text-2xl font-bold text-blue-400">--</span><span class="text-xs ml-1 text-blue-400">W/m²</span></div></div>
+            </div>
+
+            <div class="w-full mt-2 pb-6">
+                <div class="bg-slate-800 p-5 md:p-6 rounded-2xl border border-slate-600 shadow-xl flex flex-col items-start w-full">
+                    <span class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-3 flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 animate-pulse mr-3 shadow-[0_0_10px_#22c55e]"></span> Sandi METAR Terminal (AWOS)</span>
+                    <div class="w-full bg-slate-950/80 rounded-xl p-5 md:p-6 font-mono text-green-400 text-2xl md:text-3xl font-bold tracking-widest overflow-x-auto whitespace-nowrap border-2 border-slate-700/50 shadow-inner">
+                        <span id="awos_metar">Menunggu Sandi METAR...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+            <!-- RUANG KHUSUS UNTUK MENU ARG -->
+        <div id="view_arg" class="hidden">
+            
+            <!-- === PASTE SELURUH KODE TAHAP 2 (YANG PANJANG TADI) DI SINI === -->
+             <!-- =================================================== -->
+            <!-- REAL-TIME DASHBOARD ARG (18 TITIK KALIMANTAN TIMUR) -->
+            <!-- =================================================== -->
+            <div class="mt-12 mb-4 flex justify-between items-end">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-wider">REAL-TIME ARG NETWORK</h2>
+                    <p class="text-sm text-slate-400">Pemantauan Spasial Curah Hujan 18 Titik Regional Kalimantan Timur</p>
+                </div>
+                
+                <!-- Tombol Switcher Mode -->
+                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                    <!-- Tombol Peta (Aktif Default) -->
+                    <button id="btn-arg-map" class="px-4 py-1.5 rounded-md text-sm font-semibold transition-all bg-blue-600 text-white shadow-md" onclick="switchArgView('map')">
+                        🗺️ Peta
+                    </button>
+                    <!-- Tombol Kartu -->
+                    <button id="btn-arg-card" class="px-4 py-1.5 rounded-md text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-700 transition-all" onclick="switchArgView('card')">
+                        🗂️ Kartu
+                    </button>
+                    <!-- Tombol Tabel -->
+                    <button id="btn-arg-table" class="px-4 py-1.5 rounded-md text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-700 transition-all" onclick="switchArgView('table')">
+                        📊 Tabel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Container Utama Tampilan ARG (Relatif terhadap child absolut) -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden relative shadow-lg" style="min-height: 550px;">
+                
+                <!-- 1. RUANG PETA (MAP VIEW) - Aktif saat halaman dimuat -->
+                <div id="view-arg-map" class="absolute inset-0 w-full h-full block">
+                    <!-- Div id "map-container" akan diisi oleh Leaflet.js -->
+                    <div id="map-container" class="w-full h-full z-0"></div>
+                </div>
+
+                <!-- 2. RUANG KARTU (CARD VIEW) - Disembunyikan (hidden) -->
+                <div id="view-arg-card" class="absolute inset-0 w-full h-full hidden overflow-y-auto p-6 bg-slate-900/80">
+                    <!-- Kisi-kisi Kartu (Grid) -->
+                    <div id="arg-card-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+                        <!-- Menunggu suntikan elemen kartu dari JavaScript -->
+                    </div>
+                </div>
+
+                <!-- 3. RUANG TABEL (TABLE VIEW) - Disembunyikan (hidden) -->
+                <div id="view-arg-table" class="absolute inset-0 w-full h-full hidden overflow-y-auto bg-slate-900/80 p-6">
+                    <div class="overflow-x-auto rounded-lg border border-slate-700">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="text-xs text-slate-400 uppercase bg-slate-800/80 border-b border-slate-700">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4 cursor-pointer hover:text-blue-400 transition-colors" onclick="triggerArgSort('nama')">
+                                        Nama Stasiun <i class="fa-solid fa-sort ml-1"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-4 cursor-pointer hover:text-blue-400 transition-colors" onclick="triggerArgSort('hujan')">
+                                        Hujan (mm) <i class="fa-solid fa-sort ml-1"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-4 cursor-pointer hover:text-blue-400 transition-colors" onclick="triggerArgSort('suhu')">
+                                        Suhu Panel (°C) <i class="fa-solid fa-sort ml-1"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-4 cursor-pointer hover:text-blue-400 transition-colors" onclick="triggerArgSort('baterai')">
+                                        Baterai (V) <i class="fa-solid fa-sort ml-1"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-4">Waktu Terakhir Rekam</th>
+                                </tr>
+                            </thead>
+                            <tbody id="arg-table-body" class="divide-y divide-slate-700/50">
+                                <!-- Menunggu suntikan baris tabel dari JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+             </div>
+            </div>      
+            <!-- ============================================== -->
+            <!-- VIEW: GRAFIK TREN ARG (ANALISIS RIWAYAT)       -->
+            <!-- ============================================== -->
+            <div id="view_trend_arg" class="hidden space-y-6 w-full max-w-6xl mx-auto pb-10 mt-6">
+                
+                <!-- Judul Halaman Grafik -->
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl md:text-3xl font-bold text-blue-400 uppercase tracking-widest">Grafik Tren ARG</h2>
+                    <p class="text-sm font-normal text-slate-500 mt-1">Pemantauan Riwayat Curah Hujan Berdasarkan Stasiun</p>
+                </div>
+
+                <!-- Kontrol Pemilihan Stasiun (Dropdown) -->
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <i class="fa-solid fa-map-location-dot text-blue-400 text-xl animate-bounce"></i>
+                        <label for="select_arg_station" class="text-slate-300 font-bold uppercase tracking-wider text-sm">Pilih Stasiun:</label>
+                    </div>
+                    <select id="select_arg_station" class="bg-slate-900 text-white font-semibold border border-slate-600 rounded-lg px-4 py-2 w-full sm:w-72 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer shadow-inner">
+                        <option value="">-- Mengambil Data Stasiun... --</option>
+                        <!-- Daftar nama stasiun akan disuntikkan secara otomatis oleh JavaScript -->
+                    </select>
+                </div>
+
+                <!-- Kanvas Grafik Utama -->
+                <div class="grid grid-cols-1 gap-5">
+                    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg relative w-full" style="height: 450px;">
+                        <h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest text-center">Curah Hujan (mm)</h3>
+                        
+                        <!-- Elemen Kanvas untuk Chart.js -->
+                        <canvas id="chart_arg_hujan"></canvas>
+                        
+                        <!-- Pesan Kosong Jika Belum Ada Stasiun yang Dipilih -->
+                        <div id="arg_chart_overlay" class="absolute inset-0 flex items-center justify-center bg-slate-800/80 rounded-xl backdrop-blur-sm z-10">
+                            <span class="text-slate-400 text-sm font-semibold tracking-widest uppercase">Silakan pilih stasiun pada menu di atas</span>
+                        </div>
+                    </div>
+                    <!-- TAMBAHAN: Grafik Suhu Panel -->
+                    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg relative w-full" style="height: 350px;">
+                        <h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest text-center">Suhu Panel (°C)</h3>
+                        <canvas id="chart_arg_suhu"></canvas>
+                        <!-- Pesan Kosong Jika Belum Ada Stasiun yang Dipilih -->
+                        <div id="arg_chart_overlay_suhu" class="absolute inset-0 flex items-center justify-center bg-slate-800/80 rounded-xl backdrop-blur-sm z-10">
+                            <span class="text-slate-400 text-sm font-semibold tracking-widest uppercase">Silakan pilih stasiun pada menu di atas</span>
+                        </div>
+                    </div>
+
+                    <!-- TAMBAHAN: Grafik Tegangan Baterai -->
+                    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg relative w-full" style="height: 350px;">
+                        <h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest text-center">Tegangan Baterai (V)</h3>
+                        <canvas id="chart_arg_baterai"></canvas>
+                        <!-- Pesan Kosong Jika Belum Ada Stasiun yang Dipilih -->
+                        <div id="arg_chart_overlay_baterai" class="absolute inset-0 flex items-center justify-center bg-slate-800/80 rounded-xl backdrop-blur-sm z-10">
+                            <span class="text-slate-400 text-sm font-semibold tracking-widest uppercase">Silakan pilih stasiun pada menu di atas</span>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>   
+        
+
+        <div id="view_trend_awos" class="view-hidden space-y-6 w-full max-w-6xl mx-auto pb-10">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold text-green-400">Grafik Tren AWOS</h2>
+                <p class="text-sm font-normal text-slate-500 mt-1">Histori Pergerakan Data (Simulasi 24 Jam Terakhir)</p>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-5">
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Suhu (°C)</h3><canvas id="chart_awos_suhu"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Kelembapan (%)</h3><canvas id="chart_awos_rh"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Dew Point (°C)</h3><canvas id="chart_awos_dew"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Kecepatan Angin (Knot)</h3><canvas id="chart_awos_angin"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Tekanan QNH (mb)</h3><canvas id="chart_awos_qnh"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Curah Hujan (mm)</h3><canvas id="chart_awos_hujan"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Visibility / Jarak Pandang (m)</h3><canvas id="chart_awos_vis"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Density Altitude (ft)</h3><canvas id="chart_awos_density"></canvas></div>
+            </div>
+        </div>
+
+        <div id="view_trend_aws" class="view-hidden space-y-6 w-full max-w-6xl mx-auto pb-10">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold text-yellow-400">Grafik Tren AWS</h2>
+                <p class="text-sm font-normal text-slate-500 mt-1">Histori Pergerakan Data (Simulasi 24 Jam Terakhir)</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5">
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Suhu (°C)</h3><canvas id="chart_aws_suhu"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Kelembapan (%)</h3><canvas id="chart_aws_rh"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Dew Point (°C)</h3><canvas id="chart_aws_dew"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Kecepatan Angin (Knot)</h3><canvas id="chart_aws_angin"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Tekanan / Pressure (mb)</h3><canvas id="chart_aws_press"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">QNH (mb)</h3><canvas id="chart_aws_qnh"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Curah Hujan (mm)</h3><canvas id="chart_aws_rain"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Evaporasi (mm)</h3><canvas id="chart_aws_evap"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Radiasi Matahari (W/m²)</h3><canvas id="chart_aws_rad"></canvas></div>
+            </div>
+        </div>
+
+        <div id="view_trend_bam" class="view-hidden space-y-6 w-full max-w-6xl mx-auto pb-10">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold text-purple-400">Grafik Tren BAM</h2>
+                <p class="text-sm font-normal text-slate-500 mt-1">Histori Kualitas Udara (Simulasi 24 Jam Terakhir)</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5">
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Konsentrasi PM 2.5 (µg/m³)</h3><canvas id="chart_bam_pm25"></canvas></div>
+                <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Flow Rate (lpm)</h3><canvas id="chart_bam_flow"></canvas></div>
+            </div>
+        </div>
+    </main>
+
+    <div class="fixed bottom-4 right-6 flex items-center space-x-2 bg-slate-800/90 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-600 z-40 shadow-xl">
+        <div id="indikator" class="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]"></div>
+        <span id="status_koneksi" class="text-sm font-bold text-slate-200">Menunggu Server...</span>
+    </div>
+
+    <script src="script.js?v=1"></script>
+</body>
+</html>

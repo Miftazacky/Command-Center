@@ -1,0 +1,26 @@
+/* Mengatur efek transisi halus saat warna peringatan berubah */
+.transition-colors {
+    transition-property: color, background-color;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================= */
+/* KUSTOMISASI PETA LEAFLET ARG              */
+/* ========================================= */
+.popup-arg-dark .leaflet-popup-content-wrapper {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+.popup-arg-dark .leaflet-popup-tip-container {
+    display: none !important;
+}
+.popup-arg-dark .leaflet-popup-content {
+    margin: 0 !important;
+    width: max-content !important;
+}
+
+/* Memperbaiki bug garis celah (tile gap) pada potongan peta Leaflet */
+.leaflet-tile {
+    margin: -1px !important;
+}
