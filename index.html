@@ -37,14 +37,16 @@
             <nav class="space-y-6">
                 <div>
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Monitor Utama</p>
-                    <button onclick="switchView('realtime')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                    <button onclick="switchView('noc')" id="btn-noc" class="flex items-center space-x-3 text-blue-400 hover:text-blue-300 w-full transition-all mb-4">
+                        <i class="fa-solid fa-server w-6"></i><span>Status Perangkat</span>
+                    </button>
+                    <button onclick="switchView('realtime')" id="btn-realtime" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all mb-4">
                         <i class="fa-solid fa-gauge-high w-6"></i><span>Real-time Dashboard</span>
                     </button>
+                    <button onclick="switchView('arg')" id="btn-arg" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                        <i class="fa-solid fa-cloud-showers-water w-6"></i><span>Jaringan ARG</span>
+                    </button>
                 </div>
-                <button onclick="switchView('arg')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all mt-4">
-                    <i class="fa-solid fa-cloud-showers-water w-6"></i><span>Jaringan ARG</span>
-                </button>
-                <div>
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analisis Tren (Grafik)</p>
                     <div class="space-y-4 pl-2">
                         <button onclick="switchView('trend_awos')" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
@@ -83,9 +85,67 @@
         </div>
     </header>
 
-    <main class="p-4 md:p-6 flex-1 overflow-y-auto">
+
+<main class="p-4 md:p-6 flex-1 overflow-y-auto">
+
+    <!-- ========================================== -->
+<!-- VIEW: NETWORK OPERATION CENTER (STATUS)  -->
+<!-- ========================================== -->
+<div id="view_noc" class="w-full max-w-[1800px] mx-auto flex flex-col gap-6" style="display: block;">
+    <div class="mb-6 flex justify-between items-end">
+        <div>
+            <h1 class="text-2xl font-bold text-white tracking-wide">NETWORK OPERATION CENTER</h1>
+            <p class="text-gray-400 text-sm mt-1">Pemantauan Kesehatan Perangkat Keras Real-time</p>
+        </div>
+    </div>
+
+    <!-- Modul Utama (AWOS, AWS, BAM) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Status AWOS -->
+        <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4">
+                <div id="led-awos" class="w-4 h-4 rounded-full bg-gray-600 shadow-[0_0_10px_rgba(0,0,0,0)]"></div>
+            </div>
+            <h2 class="text-blue-400 font-bold mb-4 flex items-center gap-2"><i class="fas fa-plane"></i> AWOS PENERBANGAN</h2>
+            <div class="text-sm text-gray-400">Status Sistem:</div>
+            <div id="status-text-awos" class="text-2xl font-bold text-gray-500 mb-2">MENUNGGU DATA</div>
+            <div class="text-xs text-gray-500">Pembaruan Terakhir: <span id="last-ping-awos">--</span></div>
+        </div>
+
+        <!-- Status AWS -->
+        <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden">
+             <div class="absolute top-0 right-0 p-4">
+                <div id="led-aws" class="w-4 h-4 rounded-full bg-gray-600"></div>
+            </div>
+            <h2 class="text-yellow-400 font-bold mb-4 flex items-center gap-2"><i class="fas fa-cloud-sun-rain"></i> AWS DIGITAL</h2>
+            <div class="text-sm text-gray-400">Status Sistem:</div>
+            <div id="status-text-aws" class="text-2xl font-bold text-gray-500 mb-2">MENUNGGU DATA</div>
+            <div class="text-xs text-gray-500">Pembaruan Terakhir: <span id="last-ping-aws">--</span></div>
+        </div>
+
+        <!-- Status BAM -->
+        <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden">
+             <div class="absolute top-0 right-0 p-4">
+                <div id="led-bam" class="w-4 h-4 rounded-full bg-gray-600"></div>
+            </div>
+            <h2 class="text-purple-400 font-bold mb-4 flex items-center gap-2"><i class="fas fa-smog"></i> SENSOR KUALITAS UDARA</h2>
+            <div class="text-sm text-gray-400">Status Sistem:</div>
+            <div id="status-text-bam" class="text-2xl font-bold text-gray-500 mb-2">MENUNGGU DATA</div>
+            <div class="text-xs text-gray-500">Pembaruan Terakhir: <span id="last-ping-bam">--</span></div>
+        </div>
+    </div>
+
+    <!-- Modul Jaringan ARG -->
+    <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">STATUS JARINGAN ARG (KALTIM)</h2>
+    <div id="arg-status-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <!-- Kotak-kotak ARG akan dibuat otomatis oleh JavaScript -->
+        <div class="col-span-full text-center text-gray-500 py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengumpulkan diagnostik jaringan...</div>
+    </div>
+</div>
+
+    
         
-        <div id="view_realtime" class="w-full max-w-[1800px] mx-auto flex flex-col gap-6">
+        <div id="view_realtime" class="w-full max-w-[1800px] mx-auto flex flex-col gap-6" style="display: none;">
             
             <div class="grid grid-cols-12 gap-4 items-start border-b border-slate-700/50 pb-2">
                 <div class="col-span-5 flex flex-col items-start">

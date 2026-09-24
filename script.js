@@ -27,9 +27,67 @@ function toggleSidebar() {
     }
 }
 
+// ==========================================
+// FUNGSI UPDATE UI NOC (STATUS PERANGKAT)
+// ==========================================
+function updateStatusAlat(idAlat, statusCode, waktuTerakhir) {
+    const led = document.getElementById(`led-${idAlat}`);
+    const text = document.getElementById(`status-text-${idAlat}`);
+    const ping = document.getElementById(`last-ping-${idAlat}`);
+    
+    if(!led) return;
+
+    // Reset kelas bawaan
+    led.className = "w-4 h-4 rounded-full";
+    text.className = "text-2xl font-bold mb-2";
+
+    if (statusCode === 1 || statusCode === "1") {
+        led.classList.add("bg-green-500", "shadow-[0_0_15px_rgba(34,197,94,0.7)]"); // Hijau Menyala
+        text.classList.add("text-green-400");
+        text.innerText = "ONLINE (NORMAL)";
+    } else {
+        led.classList.add("bg-red-500", "animate-ping"); // Merah Berkedip
+        text.classList.add("text-red-500");
+        text.innerText = "OFFLINE / ERROR";
+    }
+
+    ping.innerText = waktuTerakhir || "--";
+}
+
+function renderArgStatusGrid(dataARG) {
+    const container = document.getElementById('arg-status-grid');
+    if(!container) return;
+    
+    container.innerHTML = ''; // Bersihkan loading
+
+    dataARG.forEach(st => {
+        let baterai = parseFloat(st.tegangan_baterai);
+        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Normal
+        let ikonBaterai = '<i class="fas fa-battery-full"></i>';
+        
+        if (baterai < 11.5) {
+            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse"; // Warning
+            ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
+        } else if (isNaN(baterai) || st.waktu_rekam == null) {
+            statusWarna = "bg-red-900/40 border-red-500 text-red-500"; // Offline
+            ikonBaterai = '<i class="fas fa-battery-empty text-red-500"></i>';
+        }
+
+        const box = document.createElement('div');
+        box.className = `p-3 rounded border ${statusWarna} flex flex-col justify-between`;
+        box.innerHTML = `
+            <div class="text-xs font-bold truncate mb-1" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
+            <div class="text-[10px] text-gray-400 flex justify-between items-center mt-1">
+                <span>${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}</span>
+            </div>
+        `;
+        container.appendChild(box);
+    });
+}
+
 function switchView(viewId) {
     // 1. Daftar semua ID halaman yang ada di sistem
-    const views = ['view_realtime', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_arg', 'view_trend_arg'];
+    const views = ['view_noc', 'view_realtime', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_arg', 'view_trend_arg'];
     
     // 2. Sembunyikan semuanya terlebih dahulu untuk me-reset layar (Mengatasi Bug Tumpang Tindih)
     views.forEach(v => {
@@ -61,7 +119,8 @@ function switchView(viewId) {
     }
 
     // 5. Munculkan Halaman yang Dipilih
-    let targetView = viewId === 'arg' ? 'view_arg' : 
+    let targetView = viewId === 'noc' ? 'view_noc' :
+                     viewId === 'arg' ? 'view_arg' : 
                      viewId === 'trend_arg' ? 'view_trend_arg' : 
                      viewId === 'realtime' ? 'view_realtime' : 
                      'view_' + viewId;
@@ -262,6 +321,7 @@ async function fetchLiveDashboard() {
             document.getElementById("aws_dewpoint").innerText = data.dew_point;
             document.getElementById("aws_evaporasi").innerText = data.evaporasi;
             document.getElementById("aws_radiasi").innerText = data.radiasi;
+            updateStatusAlat('aws', data.status_alat, konversiUtcKeWita(data.tanggal_alat, data.jam_alat));            
             if(data.tanggal_alat && data.jam_alat) {
                 document.getElementById("aws_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
             }
@@ -290,7 +350,7 @@ async function fetchLiveDashboard() {
             
             document.getElementById("awos_sky").innerText = data.sky_condition === "" ? "CLEAR" : data.sky_condition;
             document.getElementById("awos_metar").innerText = data.metar;
-
+            updateStatusAlat('awos', data.status_alat, konversiUtcKeWita(data.tanggal_alat, data.jam_alat));
             if(data.tanggal_alat && data.jam_alat) {
                 document.getElementById("awos_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
             }
@@ -303,6 +363,7 @@ async function fetchLiveDashboard() {
             let data = dataBAM[0];
             updateDenganPeringatan("bam_pm25", data.pm25, 50, 'text-purple-400');
             document.getElementById("bam_flow").innerText = data.flow_rate;
+            updateStatusAlat('bam', data.status_alat, data.waktu_data);
             if (data.waktu_data !== undefined) document.getElementById("bam_waktu").innerText = data.waktu_data;
         }
 
@@ -357,6 +418,7 @@ async function fetchLiveDashboard() {
         if(dataARGGabungan.length > 0) {
             updateArgData(dataARGGabungan); 
             processArgTrendData(dataARGGabungan);
+            renderArgStatusGrid(dataARGGabungan);
         }
 
         // Indikator Sukses
