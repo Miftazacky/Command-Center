@@ -128,8 +128,10 @@ function switchView(viewId) {
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // Karena halaman Real-time menggunakan "flex", memunculkannya dengan display = "" 
-        // akan mengembalikan elemen ke state CSS bawaan Tailwind-nya (menjadi flexbox normal).
+        // BUKA GEMBOK: Hapus class CSS bawaan HTML yang menyembunyikan elemen
+        el.classList.remove('hidden', 'view-hidden'); 
+        
+        // KEMBALIKAN WUJUD ASLI: (akan menjadi flex untuk realtime/noc, dan block untuk arg/grafik)
         el.style.display = ''; 
     }
     
