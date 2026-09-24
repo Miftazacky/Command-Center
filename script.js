@@ -89,12 +89,12 @@ function switchView(viewId) {
     // 1. Daftar semua ID halaman yang ada di sistem
     const views = ['view_noc', 'view_realtime', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_arg', 'view_trend_arg'];
     
-    // 2. Sembunyikan semuanya terlebih dahulu untuk me-reset layar (Mengatasi Bug Tumpang Tindih)
+    // 2. Sembunyikan semuanya terlebih dahulu untuk me-reset layar
     views.forEach(v => {
         let el = document.getElementById(v);
         if (el) {
-            el.classList.add('view-hidden', 'hidden'); 
-            el.classList.remove('block');
+            // Gunakan inline style agar tidak menimpa class bawaan Tailwind (seperti flex)
+            el.style.display = 'none'; 
         }
     });
 
@@ -105,7 +105,8 @@ function switchView(viewId) {
         'trend_aws': 'Analisis AWS', 
         'trend_bam': 'Analisis BAM', 
         'trend_arg': 'Analisis Tren ARG',
-        'arg': 'Jaringan ARG'
+        'arg': 'Jaringan ARG',
+        'noc': 'Status Perangkat' // Jangan lupa tambahkan judul untuk NOC
     };
     if (titles[viewId]) {
         document.getElementById('view_title').innerText = titles[viewId];
@@ -127,8 +128,9 @@ function switchView(viewId) {
                      
     let el = document.getElementById(targetView);
     if (el) {
-        el.classList.remove('view-hidden', 'hidden');
-        el.classList.add('block');
+        // Karena halaman Real-time menggunakan "flex", memunculkannya dengan display = "" 
+        // akan mengembalikan elemen ke state CSS bawaan Tailwind-nya (menjadi flexbox normal).
+        el.style.display = ''; 
     }
     
     // 6. Fix Bug Leaflet: Render ulang peta jika menu Peta ARG dibuka
