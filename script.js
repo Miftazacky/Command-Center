@@ -115,17 +115,16 @@ function switchView(viewId) {
     // 1. Daftar semua ID halaman yang ada di sistem
     const views = ['view_noc', 'view_realtime', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_arg', 'view_trend_arg'];
     
-    // 2. Sembunyikan semuanya dengan paksa menggunakan Tailwind class 'hidden'
+    // 2. Sembunyikan semuanya terlebih dahulu untuk me-reset layar
     views.forEach(v => {
         let el = document.getElementById(v);
         if (el) {
-            el.classList.add('hidden');
-            // Hapus class 'flex' atau 'block' agar tidak tumpang tindih
-            el.classList.remove('flex', 'block'); 
+            // Gunakan inline style agar tidak menimpa class bawaan Tailwind (seperti flex)
+            el.style.display = 'none'; 
         }
     });
 
-    // 3. Atur Judul Header
+    // 3. Atur Judul Header sesuai menu yang diklik
     const titles = { 
         'realtime': 'Live Monitor', 
         'trend_awos': 'Analisis AWOS', 
@@ -133,7 +132,7 @@ function switchView(viewId) {
         'trend_bam': 'Analisis BAM', 
         'trend_arg': 'Analisis Tren ARG',
         'arg': 'Jaringan ARG',
-        'noc': 'Status Perangkat'
+        'noc': 'Status Perangkat' // Jangan lupa tambahkan judul untuk NOC
     };
     if (titles[viewId]) {
         document.getElementById('view_title').innerText = titles[viewId];
@@ -146,7 +145,7 @@ function switchView(viewId) {
         initCharts(viewId.replace('trend_', ''));
     }
 
-    // 5. Munculkan Halaman yang Dipilih dengan class yang Tepat
+    // 5. Munculkan Halaman yang Dipilih
     let targetView = viewId === 'noc' ? 'view_noc' :
                      viewId === 'arg' ? 'view_arg' : 
                      viewId === 'trend_arg' ? 'view_trend_arg' : 
@@ -155,16 +154,11 @@ function switchView(viewId) {
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // Hapus 'hidden' untuk memunculkan elemen
-        el.classList.remove('hidden');
+        // BUKA GEMBOK: Hapus class CSS bawaan HTML yang menyembunyikan elemen
+        el.classList.remove('hidden', 'view-hidden'); 
         
-        // Terapkan class 'flex' untuk halaman Realtime dan NOC (karena layout grid mereka butuh flexbox)
-        // Terapkan class 'block' untuk halaman lainnya (seperti map ARG dan Chart)
-        if(targetView === 'view_realtime' || targetView === 'view_noc') {
-             el.classList.add('flex');
-        } else {
-             el.classList.add('block');
-        }
+        // KEMBALIKAN WUJUD ASLI: (akan menjadi flex untuk realtime/noc, dan block untuk arg/grafik)
+        el.style.display = ''; 
     }
     
     // 6. Fix Bug Leaflet: Render ulang peta jika menu Peta ARG dibuka
