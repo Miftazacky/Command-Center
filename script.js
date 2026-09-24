@@ -64,21 +64,47 @@ function renderArgStatusGrid(dataARG) {
         let baterai = parseFloat(st.tegangan_baterai);
         let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Normal
         let ikonBaterai = '<i class="fas fa-battery-full"></i>';
+        let warnaWaktu = "text-slate-400"; // Warna waktu normal
         
+        // Logika Status Kritis
         if (baterai < 11.5) {
             statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse"; // Warning
             ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
+            warnaWaktu = "text-yellow-500/70";
         } else if (isNaN(baterai) || st.waktu_rekam == null) {
             statusWarna = "bg-red-900/40 border-red-500 text-red-500"; // Offline
             ikonBaterai = '<i class="fas fa-battery-empty text-red-500"></i>';
+            warnaWaktu = "text-red-400/80";
+        }
+
+        // Format Waktu Rekam: Mengubah "2026-09-24 15:00:00" menjadi "24/09 15:00"
+        let waktuStr = "--/-- --:--";
+        if (st.waktu_rekam) {
+            let temp = st.waktu_rekam.replace('T', ' ').replace('.000Z', '');
+            let parts = temp.split(' ');
+            if(parts.length > 1) {
+                let d = parts[0].split('-'); // [2026, 09, 24]
+                let t = parts[1].split(':'); // [15, 00, 00]
+                waktuStr = `${d[2]}/${d[1]} ${t[0]}:${t[1]}`;
+            } else {
+                waktuStr = temp;
+            }
         }
 
         const box = document.createElement('div');
-        box.className = `p-3 rounded border ${statusWarna} flex flex-col justify-between`;
+        box.className = `p-2 md:p-3 rounded-lg border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden`;
+        
+        // Desain UI Kartu ARG
         box.innerHTML = `
             <div class="text-xs font-bold truncate mb-1" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
-            <div class="text-[10px] text-gray-400 flex justify-between items-center mt-1">
-                <span>${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}</span>
+            
+            <div class="flex justify-between items-end mt-1 pt-2 border-t border-slate-700/50">
+                <span class="text-[10px] font-mono tracking-tight" title="Tegangan Baterai">
+                    ${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}
+                </span>
+                <span class="text-[9px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
+                    <i class="fa-regular fa-clock"></i> ${waktuStr}
+                </span>
             </div>
         `;
         container.appendChild(box);
