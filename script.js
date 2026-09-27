@@ -77,17 +77,29 @@ function renderArgStatusGrid(dataARG) {
             warnaWaktu = "text-red-400/80";
         }
 
-        // Format Waktu Rekam: Mengubah "2026-09-24 15:00:00" menjadi "24/09 15:00"
-        // Format Waktu Rekam: Mengubah "2026-09-24 15:00:00" menjadi "24/09 15:00"
+        // Format Waktu Rekam: Mengubah "2026-09-24T07:57:00+00:00" menjadi "24/09 15:57" (Dikonversi ke WITA)
         let waktuStr = "--/-- --:--";
         if (st.waktu_rekam) {
-            let parts = st.waktu_rekam.split(' ');
-            if(parts.length > 1) {
-                let d = parts[0].split('-'); // [2026, 09, 24]
-                let t = parts[1].split(':'); // [15, 00, 00]
-                waktuStr = `${d[2]}/${d[1]} ${t[0]}:${t[1]}`;
-            } else {
-                waktuStr = st.waktu_rekam;
+            try {
+                // Buat objek Date dari string ISO 8601 Supabase (sudah mengerti +00:00)
+                let d = new Date(st.waktu_rekam); 
+                
+                // Cek apakah tanggal valid
+                if (!isNaN(d.getTime())) {
+                    // Ekstrak hari dan bulan (padStart agar selalu 2 digit)
+                    let tgl = String(d.getDate()).padStart(2, '0');
+                    let bln = String(d.getMonth() + 1).padStart(2, '0');
+                    
+                    // Ekstrak jam dan menit (otomatis menyesuaikan zona waktu browser lokal / WITA)
+                    let jam = String(d.getHours()).padStart(2, '0');
+                    let mnt = String(d.getMinutes()).padStart(2, '0');
+                    
+                    waktuStr = `${tgl}/${bln} ${jam}:${mnt}`;
+                } else {
+                    waktuStr = "Invalid Date";
+                }
+            } catch (e) {
+                waktuStr = "Parse Error";
             }
         }
 
@@ -112,15 +124,17 @@ function renderArgStatusGrid(dataARG) {
 }
 
 function switchView(viewId) {
-    // 1. Daftar semua ID halaman yang ada di sistem
-    const views = ['view_noc', 'view_realtime', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_arg', 'view_trend_arg'];
+    // 1. Daftar semua ID halaman (pastikan ID ini persis sama dengan yang ada di index.html)
+    const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam'];
     
-    // 2. Sembunyikan semuanya terlebih dahulu untuk me-reset layar
+    // 2. Sembunyikan semuanya dengan paksa menggunakan style.display
     views.forEach(v => {
         let el = document.getElementById(v);
         if (el) {
-            // Gunakan inline style agar tidak menimpa class bawaan Tailwind (seperti flex)
+            // Gunakan inline style agar lebih kuat daripada class Tailwind saat reset
             el.style.display = 'none'; 
+            // Pastikan class 'hidden' juga tidak mengganggu jika sebelumnya ada
+            el.classList.remove('hidden', 'view-hidden');
         }
     });
 
@@ -132,7 +146,7 @@ function switchView(viewId) {
         'trend_bam': 'Analisis BAM', 
         'trend_arg': 'Analisis Tren ARG',
         'arg': 'Jaringan ARG',
-        'noc': 'Status Perangkat' // Jangan lupa tambahkan judul untuk NOC
+        'noc': 'Status Perangkat'
     };
     if (titles[viewId]) {
         document.getElementById('view_title').innerText = titles[viewId];
@@ -154,11 +168,13 @@ function switchView(viewId) {
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // BUKA GEMBOK: Hapus class CSS bawaan HTML yang menyembunyikan elemen
-        el.classList.remove('hidden', 'view-hidden'); 
-        
-        // KEMBALIKAN WUJUD ASLI: (akan menjadi flex untuk realtime/noc, dan block untuk arg/grafik)
-        el.style.display = ''; 
+        // Karena Real-time dan NOC menggunakan Flexbox dari Tailwind (flex flex-col), 
+        // kita menggunakan 'flex' untuk mereka, dan 'block' untuk yang lain.
+        if (targetView === 'view_realtime' || targetView === 'view_noc') {
+            el.style.display = 'flex';
+        } else {
+            el.style.display = 'block';
+        }
     }
     
     // 6. Fix Bug Leaflet: Render ulang peta jika menu Peta ARG dibuka
