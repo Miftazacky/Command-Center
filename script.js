@@ -124,16 +124,14 @@ function renderArgStatusGrid(dataARG) {
 }
 
 function switchView(viewId) {
-    // 1. Daftar semua ID halaman (pastikan ID ini persis sama dengan yang ada di index.html)
-    const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam'];
+    // 1. Daftar semua ID halaman (+ view_mppt)
+    const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_mppt'];
     
     // 2. Sembunyikan semuanya dengan paksa menggunakan style.display
     views.forEach(v => {
         let el = document.getElementById(v);
         if (el) {
-            // Gunakan inline style agar lebih kuat daripada class Tailwind saat reset
             el.style.display = 'none'; 
-            // Pastikan class 'hidden' juga tidak mengganggu jika sebelumnya ada
             el.classList.remove('hidden', 'view-hidden');
         }
     });
@@ -146,7 +144,8 @@ function switchView(viewId) {
         'trend_bam': 'Analisis BAM', 
         'trend_arg': 'Analisis Tren ARG',
         'arg': 'Jaringan ARG',
-        'noc': 'Status Perangkat'
+        'noc': 'Status Perangkat',
+        'mppt': 'Baterai MPPT AWOS' // <--- Tambahan untuk MPPT
     };
     if (titles[viewId]) {
         document.getElementById('view_title').innerText = titles[viewId];
@@ -164,13 +163,13 @@ function switchView(viewId) {
                      viewId === 'arg' ? 'view_arg' : 
                      viewId === 'trend_arg' ? 'view_trend_arg' : 
                      viewId === 'realtime' ? 'view_realtime' : 
+                     viewId === 'mppt' ? 'view_mppt' : // <--- Target untuk MPPT
                      'view_' + viewId;
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // Karena Real-time dan NOC menggunakan Flexbox dari Tailwind (flex flex-col), 
-        // kita menggunakan 'flex' untuk mereka, dan 'block' untuk yang lain.
-        if (targetView === 'view_realtime' || targetView === 'view_noc') {
+        // Halaman yang butuh flexbox (termasuk MPPT agar iframe penuh)
+        if (targetView === 'view_realtime' || targetView === 'view_noc' || targetView === 'view_mppt') {
             el.style.display = 'flex';
         } else {
             el.style.display = 'block';

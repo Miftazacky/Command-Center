@@ -46,6 +46,10 @@
                     <button onclick="switchView('arg')" id="btn-arg" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
                         <i class="fa-solid fa-cloud-showers-water w-6"></i><span>Jaringan ARG</span>
                     </button>
+                    <!-- TOMBOL BARU MPPT -->
+                    <button onclick="switchView('mppt')" id="btn-mppt" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
+                        <i class="fa-solid fa-car-battery w-6 text-green-500"></i><span>Baterai MPPT</span>
+                    </button>
                 </div>
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analisis Tren (Grafik)</p>
                     <div class="space-y-4 pl-2">
@@ -403,6 +407,27 @@
             <div class="grid grid-cols-1 gap-5">
                 <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Konsentrasi PM 2.5 (µg/m³)</h3><canvas id="chart_bam_pm25"></canvas></div>
                 <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg"><h3 class="mb-2 text-slate-400 text-xs font-bold uppercase tracking-widest">Flow Rate (lpm)</h3><canvas id="chart_bam_flow"></canvas></div>
+            </div>
+        </div>
+        <!-- ========================================== -->
+        <!-- VIEW: MPPT DASHBOARD (IFRAME INVERSION)    -->
+        <!-- ========================================== -->
+        <div id="view_mppt" class="hidden w-full flex-col gap-6" style="height: calc(100vh - 120px);">
+            <div class="flex justify-between items-end shrink-0">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-bold text-green-400 tracking-widest uppercase">Status Baterai MPPT</h2>
+                    <p class="text-sm font-medium text-slate-500 mt-1">Integrasi Sistem Pengisian Daya AWOS (Dark Mode Inverted)</p>
+                </div>
+                <!-- Tombol tab eksternal sebagai cadangan -->
+                <a href="https://batt-awos.vercel.app" target="_blank" class="hidden md:flex px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg border border-slate-600 text-sm font-bold transition-all items-center gap-2 shadow-md">
+                    <i class="fa-solid fa-external-link-alt"></i> Buka Web Asli
+                </a>
+            </div>
+            
+            <!-- Iframe Container dengan Filter CSS -->
+            <div class="w-full flex-1 bg-white border border-slate-700 rounded-xl overflow-hidden shadow-lg relative">
+                <!-- Trik Inversi: Web Terang diubah paksa jadi Gelap -->
+                <iframe src="https://batt-awos.vercel.app" class="w-full h-full border-0 absolute inset-0" style="filter: invert(1) hue-rotate(180deg);"></iframe>
             </div>
         </div>
     </main>
