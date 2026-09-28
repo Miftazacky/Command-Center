@@ -208,11 +208,19 @@ window.myCharts = {}; // Objek global untuk menyimpan instance grafik
 async function initCharts(tipe) {
     if (chartsInitialized[tipe]) return;
 
-    // --- Konfigurasi Template Grafik ---
+    // --- Konfigurasi Template Grafik (Tema Terang) ---
     const config = (label, color) => ({
         type: 'line',
         data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, backgroundColor: color + '20', fill: true, tension: 0.4, pointBackgroundColor: color, pointRadius: 3, borderWidth: 2 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } }, 
+            scales: { 
+                y: { grid: { color: '#e2e8f0' }, ticks: { color: '#64748b', font: { weight: 'bold' } } }, 
+                x: { grid: { display: false }, ticks: { color: '#64748b', font: { weight: 'bold' } } } 
+            } 
+        }
     });
 
     if (tipe === 'awos') {
@@ -537,14 +545,14 @@ function switchArgView(view) {
     btns.forEach(id => {
         let btn = document.getElementById(id);
         btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
-        btn.classList.add('text-slate-400');
+        btn.classList.add('text-slate-500');
     });
 
     // Munculkan kontainer yang dipilih & nyalakan tombolnya
     if (view === 'map') {
         document.getElementById('view-arg-map').classList.remove('hidden');
         let btn = document.getElementById('btn-arg-map');
-        btn.classList.remove('text-slate-400');
+        btn.classList.remove('text-slate-500');
         btn.classList.add('bg-blue-600', 'text-white', 'shadow-md');
         
         // Fix Bug Leaflet: Render ulang peta setelah div dimunculkan dari hidden
@@ -555,27 +563,28 @@ function switchArgView(view) {
     else if (view === 'card') {
         document.getElementById('view-arg-card').classList.remove('hidden');
         let btn = document.getElementById('btn-arg-card');
-        btn.classList.remove('text-slate-400');
+        btn.classList.remove('text-slate-500');
         btn.classList.add('bg-blue-600', 'text-white', 'shadow-md');
     }
     else if (view === 'table') {
         document.getElementById('view-arg-table').classList.remove('hidden');
         let btn = document.getElementById('btn-arg-table');
-        btn.classList.remove('text-slate-400');
+        btn.classList.remove('text-slate-500');
         btn.classList.add('bg-blue-600', 'text-white', 'shadow-md');
     }
 }
 
-// 2. Fungsi Menggambar Peta Awal (Dark Mode)
+// 2. Fungsi Menggambar Peta Awal (Light Mode)
 function initArgMap() {
     // Kordinat tengah Kalimantan Timur [Lat, Lon], Zoom Level 6
     argMap = L.map('map-container').setView([0.5, 116.5], 6);
 
-    // Menggunakan Tile Layer Dark Mode yang elegan
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-        maxZoom: 16
-    }).addTo(argMap); // Sesuaikan 'argMap' dengan nama variabel peta Anda
+    // Menggunakan Tile Layer Light Mode yang elegan (CartoDB Positron)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(argMap);
 }
 
 // Inisialisasi peta ARG setelah halaman siap
@@ -658,11 +667,11 @@ function updateArgData(argArray) {
                 iconAnchor: [6, 6]
             });
 
-            // 3. Estetika Peta: Pop-up Mini Dashboard (Tanpa Bingkai Putih)
-            let batColor = bat < 11.5 ? '#ef4444' : '#4ade80';
+            // 3. Estetika Peta: Pop-up Mini Dashboard (Light Theme)
+            let batColor = bat < 11.5 ? '#ef4444' : '#16a34a';
             let popupContent = `
-                <div style="background: #1e293b; color: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.7);">
-                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: ${markerColor}; border-bottom: 1px solid #334155; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">${nama}</h4>
+                <div style="background: #ffffff; color: #1e293b; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; font-family: sans-serif; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: ${markerColor}; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">${nama}</h4>
                     <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Status:</span> <b style="color: ${markerColor};">${statusCuaca}</b></div>
                     <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Hujan:</span> <b>${hujan} mm</b></div>
                     <div style="font-size: 12px; display: flex; justify-content: space-between;"><span>Baterai:</span> <b style="color: ${batColor};">${bat} V</b></div>
@@ -692,7 +701,7 @@ function updateArgData(argArray) {
         // 1. Efek Visual Cerdas (Glow) jika hujan > 0
         let cardBg = hujan > 0 
             ? 'bg-blue-900/40 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)]' // Menyala biru terang jika hujan
-            : 'bg-slate-800 border-slate-700 shadow-md hover:border-slate-500';      // Gelap elegan jika cerah
+            : 'bg-white border-slate-200 shadow-md hover:border-slate-500';      // Gelap elegan jika cerah
             
         let rainColor = hujan > 0 ? 'text-blue-400 font-extrabold' : 'text-slate-300';
         
