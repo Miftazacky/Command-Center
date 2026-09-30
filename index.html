@@ -43,11 +43,11 @@
                     <button onclick="switchView('realtime')" id="btn-realtime" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all mb-4">
                         <i class="fa-solid fa-gauge-high w-6"></i><span>Real-time Dashboard</span>
                     </button>
-                    <button onclick="switchView('arg')" id="btn-arg" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                    <button onclick="switchView('arg')" id="btn-arg" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all mb-4">
                         <i class="fa-solid fa-cloud-showers-water w-6"></i><span>Jaringan ARG</span>
                     </button>
                     <!-- TOMBOL BARU MPPT -->
-                    <button onclick="switchView('mppt')" id="btn-mppt" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
+                    <button onclick="switchView('mppt')" id="btn-mppt" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all mb-4">
                         <i class="fa-solid fa-car-battery w-6 text-green-500"></i><span>Baterai MPPT</span>
                     </button>
                 </div>
@@ -424,10 +424,10 @@
                 </a>
             </div>
             
-            <!-- Iframe Container dengan Filter CSS -->
-            <div class="w-full flex-1 bg-white border border-slate-700 rounded-xl overflow-hidden shadow-lg relative">
-                <!-- Trik Inversi: Web Terang diubah paksa jadi Gelap -->
-                <iframe src="https://batt-awos.vercel.app" class="w-full h-full border-0 absolute inset-0" style="filter: invert(1) hue-rotate(180deg);"></iframe>
+            <!-- Iframe Container dengan Filter CSS & Blend Mode -->
+            <div class="w-full flex-1 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-lg relative">
+                <!-- Trik Inversi & Lighten: Hitam pekat dari iframe akan tembus pandang mengikuti bg-slate-900 -->
+                <iframe src="https://batt-awos.vercel.app" class="w-full h-full border-0 absolute inset-0" style="filter: invert(1) hue-rotate(180deg); mix-blend-mode: lighten;"></iframe>
             </div>
         </div>
     </main>
