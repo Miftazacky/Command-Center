@@ -399,6 +399,11 @@ async function fetchLiveDashboard() {
             if(data.tanggal_alat && data.jam_alat) {
                 document.getElementById("awos_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
             }
+
+            // === INJEKSI DATA MPPT KE KARTU NOC ===
+            document.getElementById("noc_awos_soc").innerText = data.mppt_soc !== undefined && data.mppt_soc !== null ? data.mppt_soc : "--";
+            document.getElementById("noc_awos_volt").innerText = data.mppt_volt !== undefined && data.mppt_volt !== null ? data.mppt_volt : "--";
+            document.getElementById("noc_awos_mode").innerText = data.mppt_mode ? data.mppt_mode : "--";
         }
 
         // 3. Tarik BAM
