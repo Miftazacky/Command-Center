@@ -65,16 +65,17 @@
 
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analisis Tren (Grafik)</p>
                     <div class="space-y-4 pl-2">
-                        <button onclick="switchView('trend_awos')" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
+                        <!-- TAMBAHKAN ID PADA KEEMPAT TOMBOL INI -->
+                        <button onclick="switchView('trend_awos')" id="btn-trend_awos" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
                             <i class="fa-solid fa-plane w-6"></i><span>Tren AWOS</span>
                         </button>
-                        <button onclick="switchView('trend_aws')" class="flex items-center space-x-3 text-slate-300 hover:text-yellow-400 w-full transition-all">
+                        <button onclick="switchView('trend_aws')" id="btn-trend_aws" class="flex items-center space-x-3 text-slate-300 hover:text-yellow-400 w-full transition-all">
                             <i class="fa-solid fa-cloud-sun w-6"></i><span>Tren AWS</span>
                         </button>
-                        <button onclick="switchView('trend_bam')" class="flex items-center space-x-3 text-slate-300 hover:text-purple-400 w-full transition-all">
+                        <button onclick="switchView('trend_bam')" id="btn-trend_bam" class="flex items-center space-x-3 text-slate-300 hover:text-purple-400 w-full transition-all">
                             <i class="fa-solid fa-industry w-6"></i><span>Tren BAM</span>
                         </button>
-                        <button onclick="switchView('trend_arg')" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                        <button onclick="switchView('trend_arg')" id="btn-trend_arg" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
                             <i class="fa-solid fa-chart-area w-6"></i><span>Tren ARG</span>
                         </button>
                     </div>

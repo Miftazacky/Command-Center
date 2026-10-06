@@ -125,10 +125,10 @@ function renderArgStatusGrid(dataARG) {
 }
 
 function switchView(viewId) {
-    // 1. Daftar semua ID halaman (+ view_mppt)
+    // 1. Daftar semua ID halaman
     const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_mppt', 'view_kalibrasi', 'view_lifetime'];
     
-    // 2. Sembunyikan semuanya dengan paksa menggunakan style.display
+    // 2. Sembunyikan semua halaman
     views.forEach(v => {
         let el = document.getElementById(v);
         if (el) {
@@ -137,7 +137,7 @@ function switchView(viewId) {
         }
     });
 
-    // 3. Atur Judul Header sesuai menu yang diklik
+    // 3. Atur Judul Header
     const titles = { 
         'realtime': 'Live Monitor', 
         'trend_awos': 'Analisis AWOS', 
@@ -148,15 +148,47 @@ function switchView(viewId) {
         'noc': 'Status Perangkat',
         'kalibrasi': 'Manajemen Kalibrasi',
         'lifetime': 'Usia Pakai Aset',
-        'mppt': 'Baterai MPPT AWOS' // <--- Tambahan untuk MPPT
+        'mppt': 'Baterai MPPT AWOS' 
     };
     if (titles[viewId]) {
         document.getElementById('view_title').innerText = titles[viewId];
     }
 
+    // ==========================================
+    // PERBAIKAN: LOGIKA PENYOROTAN SIDEBAR
+    // ==========================================
+    // Tambahkan id tombol grafik tren ke dalam daftar
+    const sidebarBtns = [
+        'btn-noc', 'btn-realtime', 'btn-arg', 'btn-mppt', 
+        'btn-kalibrasi', 'btn-lifetime',
+        'btn-trend_awos', 'btn-trend_aws', 'btn-trend_bam', 'btn-trend_arg'
+    ];
+    
+    // Reset semua tombol menjadi warna redup (slate-300)
+    sidebarBtns.forEach(btnId => {
+        let btn = document.getElementById(btnId);
+        if (btn) {
+            btn.classList.remove('text-blue-400', 'text-green-400');
+            btn.classList.add('text-slate-300');
+        }
+    });
+
+    // Nyalakan warna hanya pada tombol yang sedang aktif
+    let activeBtn = document.getElementById('btn-' + viewId);
+    if (activeBtn) {
+        activeBtn.classList.remove('text-slate-300');
+        // Khusus MPPT warnanya hijau, yang lain biru
+        if (viewId === 'mppt') {
+            activeBtn.classList.add('text-green-400');
+        } else {
+            activeBtn.classList.add('text-blue-400');
+        }
+    }
+    // ==========================================
+
     if (sidebarOpen) toggleSidebar();
 
-    // 4. CEGAH TABRAKAN: Menu ARG menggunakan fungsi grafiknya sendiri (fetch API)
+    // 4. Inisialisasi Grafik (Jika menu grafik diklik)
     if (viewId.startsWith('trend') && viewId !== 'trend_arg') {
         initCharts(viewId.replace('trend_', ''));
     }
@@ -166,12 +198,11 @@ function switchView(viewId) {
                      viewId === 'arg' ? 'view_arg' : 
                      viewId === 'trend_arg' ? 'view_trend_arg' : 
                      viewId === 'realtime' ? 'view_realtime' : 
-                     viewId === 'mppt' ? 'view_mppt' : // <--- Target untuk MPPT
+                     viewId === 'mppt' ? 'view_mppt' : 
                      'view_' + viewId;
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // Halaman yang butuh flexbox
         if (targetView === 'view_realtime' || targetView === 'view_noc' || targetView === 'view_mppt' || targetView === 'view_kalibrasi' || targetView === 'view_lifetime') {
             el.style.display = 'flex';
         } else {
@@ -179,7 +210,7 @@ function switchView(viewId) {
         }
     }
     
-    // 6. Fix Bug Leaflet: Render ulang peta jika menu Peta ARG dibuka
+    // 6. Fix Bug Leaflet Peta ARG
     if (viewId === 'arg' && typeof argMap !== 'undefined') {
         setTimeout(() => { argMap.invalidateSize(); }, 200);
     }
