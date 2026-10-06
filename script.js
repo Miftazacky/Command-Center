@@ -104,17 +104,18 @@ function renderArgStatusGrid(dataARG) {
         }
 
         const box = document.createElement('div');
-        box.className = `p-2 md:p-3 rounded-lg border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden`;
+        // PERUBAHAN: Padding lebih besar (p-3 md:p-4) dan efek hover (zoom) yang elegan
+        box.className = `p-3 md:p-4 rounded-xl border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden transition-transform duration-300 hover:scale-105`;
         
-        // Desain UI Kartu ARG
+        // PERUBAHAN: Teks judul stasiun & tegangan diperbesar agar tidak tenggelam di kotak yang luas
         box.innerHTML = `
-            <div class="text-xs font-bold truncate mb-1" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
+            <div class="text-sm md:text-base font-bold truncate mb-2" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
             
-            <div class="flex justify-between items-end mt-1 pt-2 border-t border-slate-700/50">
-                <span class="text-[10px] font-mono tracking-tight" title="Tegangan Baterai">
+            <div class="flex justify-between items-end mt-1 pt-3 border-t border-slate-700/50">
+                <span class="text-xs font-mono tracking-tight font-semibold" title="Tegangan Baterai">
                     ${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}
                 </span>
-                <span class="text-[9px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
+                <span class="text-[10px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
                     <i class="fa-regular fa-clock"></i> ${waktuStr}
                 </span>
             </div>
@@ -125,7 +126,7 @@ function renderArgStatusGrid(dataARG) {
 
 function switchView(viewId) {
     // 1. Daftar semua ID halaman (+ view_mppt)
-    const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_mppt'];
+    const views = ['view_noc', 'view_realtime', 'view_arg', 'view_trend_arg', 'view_trend_awos', 'view_trend_aws', 'view_trend_bam', 'view_mppt', 'view_kalibrasi', 'view_lifetime'];
     
     // 2. Sembunyikan semuanya dengan paksa menggunakan style.display
     views.forEach(v => {
@@ -145,6 +146,8 @@ function switchView(viewId) {
         'trend_arg': 'Analisis Tren ARG',
         'arg': 'Jaringan ARG',
         'noc': 'Status Perangkat',
+        'kalibrasi': 'Manajemen Kalibrasi',
+        'lifetime': 'Usia Pakai Aset',
         'mppt': 'Baterai MPPT AWOS' // <--- Tambahan untuk MPPT
     };
     if (titles[viewId]) {
@@ -168,8 +171,8 @@ function switchView(viewId) {
                      
     let el = document.getElementById(targetView);
     if (el) {
-        // Halaman yang butuh flexbox (termasuk MPPT agar iframe penuh)
-        if (targetView === 'view_realtime' || targetView === 'view_noc' || targetView === 'view_mppt') {
+        // Halaman yang butuh flexbox
+        if (targetView === 'view_realtime' || targetView === 'view_noc' || targetView === 'view_mppt' || targetView === 'view_kalibrasi' || targetView === 'view_lifetime') {
             el.style.display = 'flex';
         } else {
             el.style.display = 'block';
@@ -870,3 +873,262 @@ document.getElementById('select_arg_station').addEventListener('change', functio
 
 // 5. Nyalakan grafik saat web pertama dibuka
 document.addEventListener('DOMContentLoaded', () => { initArgTrendChart(); });
+
+// ==========================================
+// FITUR PREDICTIVE MAINTENANCE (KALIBRASI & LIFETIME)
+// ==========================================
+
+// Fungsi Kalkulator Sisa Hari
+function hitungSisaHari(tanggalTarget) {
+    const hariIni = new Date();
+    const target = new Date(tanggalTarget);
+    const selisihWaktu = target - hariIni;
+    return Math.ceil(selisihWaktu / (1000 * 60 * 60 * 24));
+}
+
+// Render Status Indikator Visual
+function renderStatusBadge(sisaHari) {
+    if (sisaHari > 90) {
+        return `<span class="px-3 py-1 bg-green-900/50 text-green-400 border border-green-700 rounded-full text-xs font-bold"><i class="fas fa-check-circle mr-1"></i>Aman (${sisaHari} hari)</span>`;
+    } else if (sisaHari > 0 && sisaHari <= 90) {
+        return `<span class="px-3 py-1 bg-yellow-900/50 text-yellow-400 border border-yellow-700 rounded-full text-xs font-bold animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i>Segera (${sisaHari} hari)</span>`;
+    } else {
+        return `<span class="px-3 py-1 bg-red-900/50 text-red-400 border border-red-700 rounded-full text-xs font-bold animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"><i class="fas fa-times-circle mr-1"></i>Kritis / Lewat</span>`;
+    }
+}
+
+// 1. Tarik Data Kalibrasi (Format Kartu Tunggal Terpisah)
+async function fetchKalibrasi() {
+    try {
+        let res = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/kalibrasi_alat?select=*&order=tgl_kalibrasi_next.asc', { headers: supabaseHeaders });
+        let data = await res.json();
+        
+        const container = document.getElementById('kalibrasi-card-container');
+        if (!container) return;
+
+        if (data.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-slate-500 font-bold tracking-wider">BELUM ADA DATA KALIBRASI TERDAFTAR</div>';
+            return;
+        }
+
+        let html = '';
+
+        // Looping untuk mencetak kartu yang berdiri sendiri-sendiri
+        data.forEach(item => {
+            let sisaHari = hitungSisaHari(item.tgl_kalibrasi_next);
+            
+            // Setiap item langsung dibungkus dalam div kartu utuh
+            html += `
+                <div class="bg-slate-800/80 border-l-4 border-l-blue-500 border border-slate-700 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-transform hover:-translate-y-1 hover:shadow-lg hover:border-slate-500">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h4 class="font-bold text-blue-300 text-lg tracking-wide">${item.nama_alat}</h4>
+                            <span class="text-[9px] bg-slate-900/80 text-slate-300 px-2.5 py-1 rounded font-bold uppercase tracking-widest border border-slate-600"><i class="fas fa-map-marker-alt text-red-400 mr-1"></i>${item.lokasi}</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2 flex flex-wrap gap-5">
+                            <span title="Kalibrasi Terakhir" class="flex items-center"><i class="fas fa-history text-slate-500 mr-2 text-sm"></i>Terakhir: <span class="font-mono text-slate-300 ml-1">${item.tgl_kalibrasi_terakhir}</span></span>
+                            <span title="Kalibrasi Berikutnya" class="flex items-center"><i class="fas fa-calendar-check text-blue-400 mr-2 text-sm"></i>Berikutnya: <span class="font-mono font-bold text-white ml-1">${item.tgl_kalibrasi_next}</span></span>
+                        </div>
+                    </div>
+                    <div class="flex flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-slate-700 pt-4 md:pt-0 mt-3 md:mt-0">
+                        ${renderStatusBadge(sisaHari)}
+                        <button onclick="bukaModalEdit('kalibrasi', ${item.id}, '${item.nama_alat}')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all border border-slate-500 flex items-center shadow-md">
+                            <i class="fas fa-edit mr-2"></i> Update
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    } catch (error) { 
+        console.error("Error Kalibrasi:", error); 
+        let container = document.getElementById('kalibrasi-card-container');
+        if(container) container.innerHTML = '<div class="text-center py-10 text-red-400">Gagal memuat data dari server. Periksa koneksi internet Anda.</div>';
+    }
+}
+
+// 2. Tarik Data Lifetime (Format Akordion per Kategori)
+async function fetchLifetime() {
+    try {
+        let res = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/lifetime_aset?select=*&order=tgl_expired.asc', { headers: supabaseHeaders });
+        let data = await res.json();
+        
+        const container = document.getElementById('lifetime-accordion-container');
+        if (!container) return; // Mencegah error jika elemen HTML belum dimuat
+
+        if (data.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-slate-500 font-bold tracking-wider">BELUM ADA DATA ASET TERDAFTAR</div>';
+            return;
+        }
+
+        // A. Kelompokkan data berdasarkan 'kategori'
+        const groupedData = data.reduce((acc, item) => {
+            let kat = item.kategori ? item.kategori.toUpperCase() : 'LAIN-LAIN';
+            if (!acc[kat]) acc[kat] = [];
+            acc[kat].push(item);
+            return acc;
+        }, {});
+
+        // B. Palet warna pinggiran kiri
+        const borderColors = ['border-l-blue-500', 'border-l-green-500', 'border-l-purple-500', 'border-l-yellow-500', 'border-l-pink-500'];
+        let html = '';
+        let colorIndex = 0;
+
+        // C. Buat HTML untuk setiap grup
+        for (const [kategori, items] of Object.entries(groupedData)) {
+            let borderColor = borderColors[colorIndex % borderColors.length];
+            let krisisCount = items.filter(i => hitungSisaHari(i.tgl_expired) <= 90).length;
+            let peringatan = krisisCount > 0 ? `<span class="ml-3 px-2 py-0.5 bg-red-900/50 text-red-400 rounded text-[10px] font-bold border border-red-700 animate-pulse">${krisisCount} Kritis</span>` : '';
+
+            // Bagian Header Grup
+            html += `
+            <div class="bg-slate-800 border-l-4 ${borderColor} rounded-r-xl rounded-l-md shadow-lg overflow-hidden transition-all duration-300 border-y border-r border-y-slate-700 border-r-slate-700">
+                <button onclick="toggleAccordion('${kategori.replace(/[^a-zA-Z0-9]/g, '-')}')" class="w-full px-5 py-4 flex justify-between items-center bg-slate-800/80 hover:bg-slate-700 transition-colors focus:outline-none">
+                    <div class="flex flex-col items-start">
+                        <div class="flex items-center">
+                            <span class="font-bold text-lg text-white tracking-widest">${kategori}</span>
+                            ${peringatan}
+                        </div>
+                        <span class="text-xs text-slate-400 mt-1">${items.length} Perangkat Terdaftar</span>
+                    </div>
+                    <div class="bg-slate-900 w-8 h-8 rounded-full flex items-center justify-center border border-slate-700">
+                        <i id="icon-${kategori.replace(/[^a-zA-Z0-9]/g, '-')}" class="fas fa-chevron-up text-slate-400 transition-transform duration-300"></i>
+                    </div>
+                </button>
+                
+                <!-- Bagian Isi Grup (Daftar Aset) -->
+                <div id="body-${kategori.replace(/[^a-zA-Z0-9]/g, '-')}" class="px-5 pb-5 pt-2 space-y-3 block bg-slate-800">
+            `;
+
+            // Cetak kartu-kartu kecil di dalam grup
+            items.forEach(item => {
+                let sisaHari = hitungSisaHari(item.tgl_expired);
+                html += `
+                    <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-transform hover:-translate-y-1 hover:shadow-md hover:border-slate-500">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-blue-300 text-base">${item.nama_alat}</h4>
+                            <div class="text-xs text-slate-400 mt-2 flex gap-4">
+                                <span title="Tanggal Pasang"><i class="fas fa-calendar-alt text-slate-500 mr-1.5"></i>${item.tgl_pasang}</span>
+                                <span title="Standar Masa Pakai"><i class="fas fa-stopwatch text-slate-500 mr-1.5"></i>${item.masa_pakai_bulan} Bulan</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-slate-700 pt-3 md:pt-0 mt-2 md:mt-0">
+                            ${renderStatusBadge(sisaHari)}
+                            <button onclick="bukaModalEdit('lifetime', ${item.id}, '${item.nama_alat}')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-slate-500 flex items-center shadow-sm">
+                                <i class="fas fa-retweet mr-1.5"></i> Ganti
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+            colorIndex++;
+        }
+
+        container.innerHTML = html;
+    } catch (error) { 
+        console.error("Error Lifetime:", error); 
+        let container = document.getElementById('lifetime-accordion-container');
+        if(container) container.innerHTML = '<div class="text-center py-10 text-red-400">Gagal memuat data dari server. Periksa koneksi internet Anda.</div>';
+    }
+}
+
+// Fungsi Pemicu Buka/Tutup Akordion
+function toggleAccordion(id) {
+    const body = document.getElementById(`body-${id}`);
+    const icon = document.getElementById(`icon-${id}`);
+    if(!body || !icon) return; // Baris pengaman ini wajib ada!
+    
+    if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        body.classList.add('block');
+        icon.classList.remove('rotate-180'); // Chevron ke atas
+    } else {
+        body.classList.remove('block');
+        body.classList.add('hidden');
+        icon.classList.add('rotate-180'); // Chevron ke bawah
+    }
+}
+
+// 3. Logika Modal (Pop-up) Update
+function bukaModalEdit(tipe, id, nama) {
+    document.getElementById('modal_edit_aset').classList.remove('hidden');
+    document.getElementById('modal_tipe').value = tipe;
+    document.getElementById('modal_id').value = id;
+    document.getElementById('modal_tanggal').value = new Date().toISOString().split('T')[0]; // Auto isi tanggal hari ini
+    
+    if(tipe === 'kalibrasi') {
+        document.getElementById('modal_title').innerText = `Update Kalibrasi: ${nama}`;
+        document.getElementById('modal_hint').innerText = "Masukkan tanggal kalibrasi terbaru. Sistem akan menghitung jadwal berikutnya otomatis.";
+    } else {
+        document.getElementById('modal_title').innerText = `Ganti Aset: ${nama}`;
+        document.getElementById('modal_hint').innerText = "Masukkan tanggal pemasangan aset yang baru. Sistem akan mereset usia pakai otomatis.";
+    }
+}
+
+function closeModalEdit() {
+    document.getElementById('modal_edit_aset').classList.add('hidden');
+}
+
+// 4. Logika Simpan (Kirim Pembaruan ke Supabase)
+async function simpanPembaruanAset() {
+    let tipe = document.getElementById('modal_tipe').value;
+    let id = document.getElementById('modal_id').value;
+    let tanggalBaru = document.getElementById('modal_tanggal').value;
+    
+    if(!tanggalBaru) return alert("Pilih tanggal terlebih dahulu!");
+
+    // Konfigurasi Headers khusus untuk proses PATCH (Update Data)
+    let patchHeaders = { ...supabaseHeaders, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    
+    try {
+        if (tipe === 'kalibrasi') {
+            // Ambil data interval bulan terlebih dahulu untuk menghitung next date
+            let resCek = await fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/kalibrasi_alat?id=eq.${id}&select=interval_bulan`, { headers: supabaseHeaders });
+            let dataCek = await resCek.json();
+            let interval = dataCek[0].interval_bulan;
+            
+            // Hitung tanggal next
+            let nextDate = new Date(tanggalBaru);
+            nextDate.setMonth(nextDate.getMonth() + interval);
+            let nextDateStr = nextDate.toISOString().split('T')[0];
+
+            // Tembak Update ke Supabase
+            await fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/kalibrasi_alat?id=eq.${id}`, {
+                method: 'PATCH', headers: patchHeaders,
+                body: JSON.stringify({ tgl_kalibrasi_terakhir: tanggalBaru, tgl_kalibrasi_next: nextDateStr })
+            });
+            fetchKalibrasi();
+        } 
+        else {
+            // Ambil data masa pakai bulan untuk menghitung expired date
+            let resCek = await fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/lifetime_aset?id=eq.${id}&select=masa_pakai_bulan`, { headers: supabaseHeaders });
+            let dataCek = await resCek.json();
+            let masa = dataCek[0].masa_pakai_bulan;
+            
+            let expDate = new Date(tanggalBaru);
+            expDate.setMonth(expDate.getMonth() + masa);
+            let expDateStr = expDate.toISOString().split('T')[0];
+
+            await fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/lifetime_aset?id=eq.${id}`, {
+                method: 'PATCH', headers: patchHeaders,
+                body: JSON.stringify({ tgl_pasang: tanggalBaru, tgl_expired: expDateStr })
+            });
+            fetchLifetime();
+        }
+        
+        closeModalEdit();
+        alert("Data berhasil diperbarui! Logika otomatisasi telah dihitung ulang.");
+    } catch (error) {
+        console.error("Gagal update data:", error);
+        alert("Terjadi kesalahan saat menyimpan ke database.");
+    }
+}
+
+// Panggil fetch saat pertama load jika halaman diakses
+document.addEventListener('DOMContentLoaded', () => {
+    fetchKalibrasi();
+    fetchLifetime();
+});

@@ -51,6 +51,18 @@
                         <i class="fa-solid fa-car-battery w-6 text-green-500"></i><span>Baterai MPPT AWOS</span>
                     </button>
                 </div>
+
+                <!-- MENU MANAJEMEN ASET BARU -->
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 mt-6">Manajemen Aset</p>
+                    <div class="space-y-4 mb-6">
+                        <button onclick="switchView('kalibrasi')" id="btn-kalibrasi" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                            <i class="fa-solid fa-clipboard-check w-6"></i><span>Jadwal Kalibrasi</span>
+                        </button>
+                        <button onclick="switchView('lifetime')" id="btn-lifetime" class="flex items-center space-x-3 text-slate-300 hover:text-blue-400 w-full transition-all">
+                            <i class="fa-solid fa-hourglass-half w-6"></i><span>Usia Pakai (Lifetime)</span>
+                        </button>
+                    </div>
+
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analisis Tren (Grafik)</p>
                     <div class="space-y-4 pl-2">
                         <button onclick="switchView('trend_awos')" class="flex items-center space-x-3 text-slate-300 hover:text-green-400 w-full transition-all">
@@ -103,9 +115,10 @@
         </div>
     </div>
 
-    <!-- Modul Utama (AWOS, AWS, BAM) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-       <!-- Status AWOS -->
+<!-- Modul Utama (AWOS, AWS, BAM) -->
+    <!-- PERUBAHAN: Tambahan 'items-start' agar kartu AWS dan BAM tidak melar (memampat) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-start">
+        <!-- Status AWOS (Tetap dengan info baterai) -->
         <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden flex flex-col justify-between">
             <div class="absolute top-0 right-0 p-4">
                 <div id="led-awos" class="w-4 h-4 rounded-full bg-gray-600 shadow-[0_0_10px_rgba(0,0,0,0)]"></div>
@@ -117,7 +130,6 @@
                 <div class="text-xs text-gray-500 mb-4">Update: <span id="last-ping-awos">--</span></div>
             </div>
             
-            <!-- Tambahan Modul Daya MPPT -->
             <div class="mt-2 pt-4 border-t border-gray-700/50 grid grid-cols-3 gap-2">
                 <div class="flex flex-col">
                     <span class="text-[9px] text-gray-400 uppercase tracking-widest">Baterai (SOC)</span>
@@ -134,7 +146,7 @@
             </div>
         </div>
 
-        <!-- Status AWS -->
+        <!-- Status AWS (Kembali ringkas & padat) -->
         <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden">
              <div class="absolute top-0 right-0 p-4">
                 <div id="led-aws" class="w-4 h-4 rounded-full bg-gray-600"></div>
@@ -145,7 +157,7 @@
             <div class="text-xs text-gray-500">Pembaruan Terakhir: <span id="last-ping-aws">--</span></div>
         </div>
 
-        <!-- Status BAM -->
+        <!-- Status BAM (Kembali ringkas & padat) -->
         <div class="bg-gray-800/50 p-6 rounded-xl border border-gray-700 backdrop-blur-sm relative overflow-hidden">
              <div class="absolute top-0 right-0 p-4">
                 <div id="led-bam" class="w-4 h-4 rounded-full bg-gray-600"></div>
@@ -159,8 +171,8 @@
 
     <!-- Modul Jaringan ARG -->
     <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">STATUS JARINGAN ARG (KALTIM)</h2>
-    <div id="arg-status-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <!-- Kotak-kotak ARG akan dibuat otomatis oleh JavaScript -->
+    <!-- PERUBAHAN: Dari lg:grid-cols-6 menjadi lg:grid-cols-4 xl:grid-cols-5 agar kotak lebih lebar, dan gap diubah jadi 4 -->
+    <div id="arg-status-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <div class="col-span-full text-center text-gray-500 py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Mengumpulkan diagnostik jaringan...</div>
     </div>
 </div>
@@ -446,6 +458,67 @@
             <div class="w-full flex-1 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-lg relative">
                 <!-- Trik Inversi & Lighten: Hitam pekat dari iframe akan tembus pandang mengikuti bg-slate-900 -->
                 <iframe src="https://batt-awos.vercel.app" class="w-full h-full border-0 absolute inset-0" style="filter: invert(1) hue-rotate(180deg); mix-blend-mode: lighten;"></iframe>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW: JADWAL KALIBRASI                     -->
+        <!-- ========================================== -->
+        <div id="view_kalibrasi" class="hidden w-full flex-col gap-6" style="display: none;">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-wider">JADWAL KALIBRASI PERANGKAT</h2>
+                    <p class="text-sm text-slate-400">Pemantauan siklus kalibrasi sensor dan instrumen ukur</p>
+                </div>
+                <button onclick="fetchKalibrasi()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all"><i class="fas fa-sync-alt mr-2"></i>Segarkan Data</button>
+            </div>
+            
+            <!-- WADAH KARTU KALIBRASI (Menggantikan Tabel) -->
+            <div id="kalibrasi-card-container" class="space-y-4 w-full pb-10">
+                <div class="text-center py-10 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data kalibrasi...</div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW: LIFETIME ASET                        -->
+        <!-- ========================================== -->
+        <div id="view_lifetime" class="hidden w-full flex-col gap-6" style="display: none;">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-wider">USIA PAKAI ASET (LIFETIME)</h2>
+                    <p class="text-sm text-slate-400">Prediksi masa pakai operasional berdasarkan kategori alat</p>
+                </div>
+                <button onclick="fetchLifetime()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all"><i class="fas fa-sync-alt mr-2"></i>Segarkan Data</button>
+            </div>
+            
+            <!-- WADAH AKORDION BARU -->
+            <div id="lifetime-accordion-container" class="space-y-4 w-full pb-10">
+                <div class="text-center py-10 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data aset...</div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL EDIT DATA (POP-UP)                   -->
+        <!-- ========================================== -->
+        <div id="modal_edit_aset" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                    <h3 id="modal_title" class="text-xl font-bold text-blue-400">Perbarui Data</h3>
+                    <button onclick="closeModalEdit()" class="text-slate-400 hover:text-red-400"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <input type="hidden" id="modal_tipe">
+                    <input type="hidden" id="modal_id">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pembaruan Tanggal</label>
+                        <input type="date" id="modal_tanggal" class="w-full bg-slate-900 text-white border border-slate-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none">
+                        <p id="modal_hint" class="text-xs text-slate-500 mt-1">Masukkan tanggal kalibrasi/pemasangan terbaru.</p>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button onclick="closeModalEdit()" class="px-4 py-2 rounded-lg font-bold text-slate-400 hover:bg-slate-700 transition-all">Batal</button>
+                    <button onclick="simpanPembaruanAset()" class="px-4 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md">Simpan Perubahan</button>
+                </div>
             </div>
         </div>
     </main>
