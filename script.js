@@ -31,27 +31,59 @@ function toggleSidebar() {
 // FUNGSI UPDATE UI NOC (STATUS PERANGKAT)
 // ==========================================
 function updateStatusAlat(idAlat, statusCode, waktuTerakhir) {
-    const led = document.getElementById(`led-${idAlat}`);
-    const text = document.getElementById(`status-text-${idAlat}`);
+    const badge = document.getElementById(`badge-${idAlat}`);
+    const badgeText = document.getElementById(`badge-text-${idAlat}`);
+    const dot = document.getElementById(`dot-${idAlat}`);
     const ping = document.getElementById(`last-ping-${idAlat}`);
     
-    if(!led) return;
+    if(!badge) return;
 
-    // Reset kelas bawaan
-    led.className = "w-4 h-4 rounded-full";
-    text.className = "text-2xl font-bold mb-2";
+    // Reset kelas bawaan lencana
+    badge.className = "mt-4 px-5 py-2 rounded-full border flex items-center justify-center gap-2 transition-all";
+    dot.className = "w-2.5 h-2.5 rounded-full";
 
-    if (statusCode === 1 || statusCode === "1") {
-        led.classList.add("bg-green-500", "shadow-[0_0_15px_rgba(34,197,94,0.7)]"); // Hijau Menyala
-        text.classList.add("text-green-400");
-        text.innerText = "ONLINE (NORMAL)";
+    let isOnline = (statusCode === 1 || statusCode === "1");
+
+    if (isOnline) {
+        // --- JIKA ALAT ONLINE ---
+        badge.classList.add("bg-emerald-500/10", "border-emerald-500/30");
+        dot.classList.add("bg-emerald-500", "shadow-[0_0_8px_rgba(16,185,129,0.8)]");
+        badgeText.className = "text-xs font-bold tracking-widest text-emerald-400";
+        
+        if(idAlat === 'awos') {
+            badgeText.innerText = "ONLINE (3/3)";
+            ['04', 'm', '22'].forEach(pt => {
+                let l = document.getElementById(`led-awos-${pt}`);
+                if(l) l.className = "w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.7)] transition-all duration-300";
+            });
+        } else {
+            badgeText.innerText = "ONLINE";
+            let l = document.getElementById(`led-${idAlat}`);
+            let g = document.getElementById(`glow-${idAlat}`);
+            if(l) l.className = "w-12 h-12 rounded-full bg-emerald-500 relative z-10 border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all duration-300";
+            if(g) g.className = "absolute inset-0 rounded-full blur-md opacity-50 bg-emerald-500 transition-all";
+        }
     } else {
-        led.classList.add("bg-red-500", "animate-ping"); // Merah Berkedip
-        text.classList.add("text-red-500");
-        text.innerText = "OFFLINE / ERROR";
+        // --- JIKA ALAT OFFLINE ---
+        badge.classList.add("bg-rose-500/10", "border-rose-500/30");
+        dot.classList.add("bg-rose-500", "animate-pulse");
+        badgeText.className = "text-xs font-bold tracking-widest text-rose-400";
+        badgeText.innerText = "OFFLINE (DISCONNECT)";
+
+        if(idAlat === 'awos') {
+            ['04', 'm', '22'].forEach(pt => {
+                let l = document.getElementById(`led-awos-${pt}`);
+                if(l) l.className = "w-6 h-6 rounded-full bg-rose-500 animate-pulse shadow-[0_0_15px_rgba(225,29,72,0.7)] transition-all duration-300";
+            });
+        } else {
+            let l = document.getElementById(`led-${idAlat}`);
+            let g = document.getElementById(`glow-${idAlat}`);
+            if(l) l.className = "w-12 h-12 rounded-full bg-rose-500 relative z-10 border-2 border-rose-400 animate-pulse shadow-[0_0_20px_rgba(225,29,72,0.5)] transition-all duration-300";
+            if(g) g.className = "absolute inset-0 rounded-full blur-md opacity-50 bg-rose-500 transition-all animate-pulse";
+        }
     }
 
-    ping.innerText = waktuTerakhir || "--";
+    if (ping) ping.innerText = waktuTerakhir || "--";
 }
 
 function renderArgStatusGrid(dataARG) {
@@ -438,6 +470,57 @@ async function fetchLiveDashboard() {
             document.getElementById("noc_awos_soc").innerText = data.mppt_soc !== undefined && data.mppt_soc !== null ? data.mppt_soc : "--";
             document.getElementById("noc_awos_volt").innerText = data.mppt_volt !== undefined && data.mppt_volt !== null ? data.mppt_volt : "--";
             document.getElementById("noc_awos_mode").innerText = data.mppt_mode ? data.mppt_mode : "--";
+
+            // === INJEKSI DATA MPPT KE POWER RIBBON BARU ===
+            let socVal = parseFloat(data.mppt_soc);
+            let socStr = !isNaN(socVal) ? Math.round(socVal) : "--";
+            let voltStr = data.mppt_volt !== undefined && data.mppt_volt !== null ? data.mppt_volt : "--";
+            let modeStr = data.mppt_mode ? data.mppt_mode : "--";
+            
+            document.getElementById("ribbon_soc_text").innerText = socStr;
+            document.getElementById("ribbon_volt").innerText = voltStr;
+            
+            let bar = document.getElementById("ribbon_soc_bar");
+            if(!isNaN(socVal)) {
+                bar.style.width = `${socVal}%`;
+                bar.className = "h-full transition-all duration-700 ";
+                if(socVal > 60) bar.classList.add("bg-emerald-500");
+                else if(socVal > 25) bar.classList.add("bg-yellow-400");
+                else bar.classList.add("bg-rose-500", "animate-pulse");
+            } else {
+                bar.style.width = "0%";
+                bar.className = "h-full bg-slate-600 transition-all duration-700";
+            }
+
+            let modeEl = document.getElementById("ribbon_mode");
+            let modeIcon = document.getElementById("ribbon_mode_icon");
+            modeEl.innerText = modeStr;
+            if (modeStr.toLowerCase().includes("boost")) {
+                modeEl.className = "text-sm font-bold text-yellow-400 uppercase tracking-wider";
+                modeIcon.className = "fas fa-bolt text-yellow-400 animate-pulse";
+            } else if (modeStr.toLowerCase().includes("float")) {
+                modeEl.className = "text-sm font-bold text-emerald-400 uppercase tracking-wider";
+                modeIcon.className = "fas fa-battery-full text-emerald-400";
+            } else {
+                modeEl.className = "text-sm font-bold text-slate-300 uppercase tracking-wider";
+                modeIcon.className = "fas fa-battery-half text-slate-500";
+            }
+
+            let aiEl = document.getElementById("ribbon_ai");
+            let aiText = data.mppt_prediksi ? data.mppt_prediksi : "Menunggu kalkulasi...";
+            aiEl.innerText = aiText;
+            if (aiText.toLowerCase().includes("habis") || aiText.toLowerCase().includes("kritis")) {
+                aiEl.className = "text-sm font-bold text-rose-400 z-10";
+            } else if (aiText.toLowerCase().includes("penuh") || aiText.toLowerCase().includes("charging")) {
+                aiEl.className = "text-sm font-bold text-emerald-400 z-10";
+            } else {
+                aiEl.className = "text-sm font-bold text-slate-300 z-10";
+            }
+
+            if(data.tanggal_alat && data.jam_alat) {
+                let timeOnly = konversiUtcKeWita(data.tanggal_alat, data.jam_alat).split(', ')[1] || "--:--";
+                document.getElementById("ribbon_update").innerText = timeOnly;
+            }
         }
 
         // 3. Tarik BAM
