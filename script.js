@@ -86,6 +86,9 @@ function updateStatusAlat(idAlat, statusCode, waktuTerakhir) {
     if (ping) ping.innerText = waktuTerakhir || "--";
 }
 
+// ==========================================
+// FUNGSI RENDER GRID ARG (NOC)
+// ==========================================
 function renderArgStatusGrid(dataARG) {
     const container = document.getElementById('arg-status-grid');
     if(!container) return;
@@ -94,38 +97,59 @@ function renderArgStatusGrid(dataARG) {
 
     dataARG.forEach(st => {
         let baterai = parseFloat(st.tegangan_baterai);
-        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Normal
-        let ikonBaterai = '<i class="fas fa-battery-full"></i>';
-        let warnaWaktu = "text-slate-400"; // Warna waktu normal
+        let hujan = parseFloat(st.total_hujan);
+        let suhu = parseFloat(st.suhu_panel);
         
-        // Logika Status Kritis
-        if (baterai < 11.5) {
-            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse"; // Warning
-            ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
-            warnaWaktu = "text-yellow-500/70";
-        } else if (isNaN(baterai) || st.waktu_rekam == null) {
-            statusWarna = "bg-red-900/40 border-red-500 text-red-500"; // Offline
-            ikonBaterai = '<i class="fas fa-battery-empty text-red-500"></i>';
-            warnaWaktu = "text-red-400/80";
+        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Default: Normal
+        let ikonBaterai = '<i class="fas fa-battery-full"></i>';
+        let warnaWaktu = "text-slate-400"; 
+        
+        // 1. Logika Timeout 1 Jam
+        let isExpired = false;
+        if (st.waktu_rekam) {
+            let dataTime = new Date(st.waktu_rekam).getTime();
+            // Jika selisih waktu saat ini dengan data terakhir > 1 jam (3600000 milidetik)
+            isExpired = ((new Date().getTime() - dataTime) / 3600000) > 1;
+        } else {
+            isExpired = true; // Jika waktu rekam tidak ada sama sekali
         }
 
-        // Format Waktu Rekam: Mengubah "2026-09-24T07:57:00+00:00" menjadi "24/09 15:57" (Dikonversi ke WITA)
+        // 2. Logika Pengecekan Null / Data Kosong
+        let isNull = (
+            st.tegangan_baterai == null || isNaN(baterai) ||
+            st.total_hujan == null || isNaN(hujan) ||
+            st.suhu_panel == null || isNaN(suhu)
+        );
+
+        // 3. Eksekusi Indikator Visual
+        let nilaiBateraiTampil = baterai;
+        
+        if (isExpired || isNull) {
+            // --- OFFLINE / DISCONNECT ---
+            statusWarna = "bg-red-900/40 border-red-500 text-red-500";
+            ikonBaterai = '<i class="fas fa-battery-empty text-red-500 animate-pulse"></i>';
+            warnaWaktu = "text-red-400/80";
+            
+            // Jika sekadar expired (data lama), tetap tampilkan voltase lama. Jika null, tampilkan '--'
+            nilaiBateraiTampil = isNull ? '--' : baterai; 
+            
+        } else if (baterai < 11.0) {
+            // --- WARNING (BATERAI < 11V) ---
+            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse";
+            ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
+            warnaWaktu = "text-yellow-500/70";
+        }
+
+        // 4. Format Waktu Rekam (Dikonversi ke WITA)
         let waktuStr = "--/-- --:--";
         if (st.waktu_rekam) {
             try {
-                // Buat objek Date dari string ISO 8601 Supabase (sudah mengerti +00:00)
                 let d = new Date(st.waktu_rekam); 
-                
-                // Cek apakah tanggal valid
                 if (!isNaN(d.getTime())) {
-                    // Ekstrak hari dan bulan (padStart agar selalu 2 digit)
                     let tgl = String(d.getDate()).padStart(2, '0');
                     let bln = String(d.getMonth() + 1).padStart(2, '0');
-                    
-                    // Ekstrak jam dan menit (otomatis menyesuaikan zona waktu browser lokal / WITA)
                     let jam = String(d.getHours()).padStart(2, '0');
                     let mnt = String(d.getMinutes()).padStart(2, '0');
-                    
                     waktuStr = `${tgl}/${bln} ${jam}:${mnt}`;
                 } else {
                     waktuStr = "Invalid Date";
@@ -135,17 +159,16 @@ function renderArgStatusGrid(dataARG) {
             }
         }
 
+        // 5. Rakit Kotak (Card) HTML
         const box = document.createElement('div');
-        // PERUBAHAN: Padding lebih besar (p-3 md:p-4) dan efek hover (zoom) yang elegan
         box.className = `p-3 md:p-4 rounded-xl border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden transition-transform duration-300 hover:scale-105`;
         
-        // PERUBAHAN: Teks judul stasiun & tegangan diperbesar agar tidak tenggelam di kotak yang luas
         box.innerHTML = `
             <div class="text-sm md:text-base font-bold truncate mb-2" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
             
             <div class="flex justify-between items-end mt-1 pt-3 border-t border-slate-700/50">
                 <span class="text-xs font-mono tracking-tight font-semibold" title="Tegangan Baterai">
-                    ${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}
+                    ${ikonBaterai} ${nilaiBateraiTampil === '--' ? '--' : nilaiBateraiTampil + 'V'}
                 </span>
                 <span class="text-[10px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
                     <i class="fa-regular fa-clock"></i> ${waktuStr}
@@ -257,8 +280,10 @@ function konversiUtcKeWita(tanggal, jam) {
     }
     const dateObj = new Date(`${formatTanggal}T${jam}Z`); 
     if (isNaN(dateObj)) return `${tanggal}, ${jam}`;
+    
     const opsiTanggal = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Makassar' };
-    const opsiJam = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Makassar' };
+    const opsiJam = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Makassar' }; 
+    
     let strTanggal = dateObj.toLocaleDateString('en-GB', opsiTanggal); 
     let strJam = dateObj.toLocaleTimeString('id-ID', opsiJam).replace(/:/g, '.'); 
     return `${strTanggal}, ${strJam}`;
@@ -411,13 +436,47 @@ function updateDenganPeringatan(elementId, nilai, batasBahaya, warnaNormal) {
     else elemen.classList.add(warnaNormal);
 }
 
+// === TAMBAHAN BARU: FUNGSI DETEKSI BATAS BAWAH (UNTUK VISIBILITY) ===
+function updateDenganPeringatanBawah(elementId, nilai, batasBahaya, warnaNormal) {
+    const elemen = document.getElementById(elementId);
+    if(!elemen) return;
+    elemen.innerText = nilai;
+    elemen.classList.remove(warnaNormal, 'text-red-500', 'animate-pulse');
+    // Menyala merah HANYA jika nilai di bawah atau sama dengan batas bahaya
+    if (parseFloat(nilai) <= batasBahaya) elemen.classList.add('text-red-500', 'animate-pulse');
+    else elemen.classList.add(warnaNormal);
+}
+
+// ==========================================
+// FUNGSI HELPER FORMAT WAKTU KESERAGAMAN (BAM & MPPT TANPA DETIK)
+// ==========================================
+function formatWaktuSeragam(isoString) {
+    if (!isoString) return "--";
+    let d = new Date(isoString);
+    if (isNaN(d.getTime())) d = new Date(isoString.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return isoString; 
+    
+    let tgl = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Makassar' }); 
+    let jam = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Makassar' }).replace(/:/g, '.'); // <-- Detik dihapus di sini
+    
+    return `${tgl}, ${jam}`;
+}
+
 // Fungsi menarik data terbaru (1 baris terakhir) untuk Dashboard Live
 async function fetchLiveDashboard() {
-    indikator.classList.add('animate-ping'); // Efek kedip saat menarik data
+    indikator.classList.add('animate-ping'); 
+    
+    // PERHATIAN: Masukkan API Key Anda di bawah ini
+    const localHeaders = {
+       "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5aXpsaXFjcW9leW5ob3liZ2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NjI1MjIsImV4cCI6MjEwNTUzODUyMn0.BeBqPajbyPmeobAXymCBgvYG5Kud_WkTLUk2xcU0TCo",
+       "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5aXpsaXFjcW9leW5ob3liZ2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NjI1MjIsImV4cCI6MjEwNTUzODUyMn0.BeBqPajbyPmeobAXymCBgvYG5Kud_WkTLUk2xcU0TCo"
+    };
     
     try {
-        // 1. Tarik AWS
-        let resAWS = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/aws_trend?select=*&order=id.desc&limit=1', { headers: supabaseHeaders });
+        // ==========================================
+        // 1. TARIK AWS DIGITAL (Timeout 1 Jam)
+        // ==========================================
+        let resAWS = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/aws_trend?select=*&order=id.desc&limit=1', { headers: localHeaders });
         let dataAWS = await resAWS.json();
         if(dataAWS.length > 0) {
             let data = dataAWS[0];
@@ -432,14 +491,32 @@ async function fetchLiveDashboard() {
             document.getElementById("aws_dewpoint").innerText = data.dew_point;
             document.getElementById("aws_evaporasi").innerText = data.evaporasi;
             document.getElementById("aws_radiasi").innerText = data.radiasi;
-            updateStatusAlat('aws', data.status_alat, konversiUtcKeWita(data.tanggal_alat, data.jam_alat));            
-            if(data.tanggal_alat && data.jam_alat) {
-                document.getElementById("aws_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
-            }
+            
+            // Validasi Null & Timeout (1 Jam)
+            let isExpiredAWS = false;
+            if (data.tanggal_alat && data.jam_alat) {
+                let formatTgl = data.tanggal_alat.includes('/') ? data.tanggal_alat.split('/').reverse().join('-') : data.tanggal_alat;
+                let dataTimeAWS = new Date(`${formatTgl}T${data.jam_alat}Z`).getTime();
+                isExpiredAWS = ((new Date().getTime() - dataTimeAWS) / 3600000) > 1;
+            } else isExpiredAWS = true;
+
+            let isNullAWS = (
+                data.suhu == null || data.kelembaban == null || data.dew_point == null ||
+                data.kec_angin == null || data.arah_angin == null || data.tekanan == null ||
+                data.qnh == null || data.hujan == null || data.evaporasi == null || data.radiasi == null
+            );
+
+            let finalStatusAWS = (isExpiredAWS || isNullAWS || data.status_alat == 0) ? 0 : 1;
+            let waktuAWS = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
+            
+            updateStatusAlat('aws', finalStatusAWS, waktuAWS);            
+            if(data.tanggal_alat && data.jam_alat) document.getElementById("aws_update").innerText = waktuAWS;
         }
 
-        // 2. Tarik AWOS
-        let resAWOS = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/awos_trend?select=*&order=id.desc&limit=1', { headers: supabaseHeaders });
+        // ==========================================
+        // 2. TARIK AWOS (Cuaca & Sensor Timeout 1 Jam)
+        // ==========================================
+        let resAWOS = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/awos_trend?select=*&order=id.desc&limit=1', { headers: localHeaders });
         let dataAWOS = await resAWOS.json();
         if(dataAWOS.length > 0) {
             let data = dataAWOS[0];
@@ -450,92 +527,187 @@ async function fetchLiveDashboard() {
             document.getElementById("awos_angin_arah").innerText = data.arah_angin;
             if(document.getElementById("awos_angin_jarum")) document.getElementById("awos_angin_jarum").style.transform = `rotate(${data.arah_angin}deg)`;
             document.getElementById("awos_dewpoint").innerText = data.dewpoint;
-            
             let hujan = parseFloat(data.hujan);
             document.getElementById("awos_hujan").innerText = isNaN(hujan) ? data.hujan : hujan.toFixed(2);
             document.getElementById("awos_density").innerText = data.density_altitude;
             
             let vis = parseFloat(data.visibility); 
             let visAkhir = isNaN(vis) ? data.visibility : (vis > 10000 ? 10000 : Math.round(vis));
-            document.getElementById("awos_vis").innerText = visAkhir;
-            
+            updateDenganPeringatanBawah("awos_vis", visAkhir, 5000, 'text-green-300');
             document.getElementById("awos_sky").innerText = data.sky_condition === "" ? "CLEAR" : data.sky_condition;
             document.getElementById("awos_metar").innerText = data.metar;
-            updateStatusAlat('awos', data.status_alat, konversiUtcKeWita(data.tanggal_alat, data.jam_alat));
-            if(data.tanggal_alat && data.jam_alat) {
-                document.getElementById("awos_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
-            }
-
-            // === INJEKSI DATA MPPT KE KARTU NOC ===
-            document.getElementById("noc_awos_soc").innerText = data.mppt_soc !== undefined && data.mppt_soc !== null ? data.mppt_soc : "--";
-            document.getElementById("noc_awos_volt").innerText = data.mppt_volt !== undefined && data.mppt_volt !== null ? data.mppt_volt : "--";
-            document.getElementById("noc_awos_mode").innerText = data.mppt_mode ? data.mppt_mode : "--";
-
-            // === INJEKSI DATA MPPT KE POWER RIBBON BARU ===
-            let socVal = parseFloat(data.mppt_soc);
-            let socStr = !isNaN(socVal) ? Math.round(socVal) : "--";
-            let voltStr = data.mppt_volt !== undefined && data.mppt_volt !== null ? data.mppt_volt : "--";
-            let modeStr = data.mppt_mode ? data.mppt_mode : "--";
             
-            document.getElementById("ribbon_soc_text").innerText = socStr;
-            document.getElementById("ribbon_volt").innerText = voltStr;
-            
-            let bar = document.getElementById("ribbon_soc_bar");
-            if(!isNaN(socVal)) {
-                bar.style.width = `${socVal}%`;
-                bar.className = "h-full transition-all duration-700 ";
-                if(socVal > 60) bar.classList.add("bg-emerald-500");
-                else if(socVal > 25) bar.classList.add("bg-yellow-400");
-                else bar.classList.add("bg-rose-500", "animate-pulse");
-            } else {
-                bar.style.width = "0%";
-                bar.className = "h-full bg-slate-600 transition-all duration-700";
-            }
-
-            let modeEl = document.getElementById("ribbon_mode");
-            let modeIcon = document.getElementById("ribbon_mode_icon");
-            modeEl.innerText = modeStr;
-            if (modeStr.toLowerCase().includes("boost")) {
-                modeEl.className = "text-sm font-bold text-yellow-400 uppercase tracking-wider";
-                modeIcon.className = "fas fa-bolt text-yellow-400 animate-pulse";
-            } else if (modeStr.toLowerCase().includes("float")) {
-                modeEl.className = "text-sm font-bold text-emerald-400 uppercase tracking-wider";
-                modeIcon.className = "fas fa-battery-full text-emerald-400";
-            } else {
-                modeEl.className = "text-sm font-bold text-slate-300 uppercase tracking-wider";
-                modeIcon.className = "fas fa-battery-half text-slate-500";
-            }
-
-            let aiEl = document.getElementById("ribbon_ai");
-            let aiText = data.mppt_prediksi ? data.mppt_prediksi : "Menunggu kalkulasi...";
-            aiEl.innerText = aiText;
-            if (aiText.toLowerCase().includes("habis") || aiText.toLowerCase().includes("kritis")) {
-                aiEl.className = "text-sm font-bold text-rose-400 z-10";
-            } else if (aiText.toLowerCase().includes("penuh") || aiText.toLowerCase().includes("charging")) {
-                aiEl.className = "text-sm font-bold text-emerald-400 z-10";
-            } else {
-                aiEl.className = "text-sm font-bold text-slate-300 z-10";
-            }
-
-            if(data.tanggal_alat && data.jam_alat) {
-                let timeOnly = konversiUtcKeWita(data.tanggal_alat, data.jam_alat).split(', ')[1] || "--:--";
-                document.getElementById("ribbon_update").innerText = timeOnly;
-            }
+            if(data.tanggal_alat && data.jam_alat) document.getElementById("awos_update").innerText = konversiUtcKeWita(data.tanggal_alat, data.jam_alat);
         }
 
-        // 3. Tarik BAM
-        let resBAM = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/bam_trend?select=*&order=id.desc&limit=1', { headers: supabaseHeaders });
+        // --- Cek Komprehensif Tabel awos_sensors ---
+        let resAwosSensors = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/awos_sensors?select=*&order=id.desc&limit=3', { headers: localHeaders });
+        let dataAwosSensors = await resAwosSensors.json();
+        
+        let onlineCount = 0;
+        let waktuUpdateAwos = "--";
+        
+        // Default matikan semua LED dulu
+        ['04', 'm', '22'].forEach(pt => {
+            let led = document.getElementById(`led-awos-${pt}`);
+            if(led) led.className = "w-6 h-6 rounded-full bg-rose-500 animate-pulse shadow-[0_0_15px_rgba(225,29,72,0.7)] transition-all duration-300";
+        });
+
+        if (dataAwosSensors.length > 0) {
+            dataAwosSensors.forEach(sensor => {
+                let code = sensor.sensor_code ? sensor.sensor_code.toLowerCase() : "";
+                
+                // 1. Cek Timeout 1 Jam
+                let isExpired = false;
+                if (sensor.created_at) {
+                    let dataTime = new Date(sensor.created_at).getTime();
+                    isExpired = ((new Date().getTime() - dataTime) / 3600000) > 1;
+                } else isExpired = true;
+
+                // 2. Cek Parameter Kosong (Null)
+                let isNull = (
+                    sensor.wind_speed_kt == null || sensor.wind_dir_deg == null ||
+                    sensor.temp_c == null || sensor.dewpoint_c == null ||
+                    sensor.rh_persen == null || sensor.qnh_hpa == null || sensor.rain_accum_mm == null
+                );
+                
+                // 3. Pengecualian Visibility Khusus Sensor 04 & 22
+                if (code === '04' || code === '22') {
+                    if (sensor.visibility_m == null) isNull = true;
+                }
+
+                // Nyalakan LED Hijau hanya jika data lengkap & tidak expired
+                let led = document.getElementById(`led-awos-${code}`);
+                if (led && !isExpired && !isNull) {
+                    led.className = "w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.7)] transition-all duration-300";
+                    onlineCount++;
+                }
+
+                if (sensor.created_at) waktuUpdateAwos = formatWaktuSeragam(sensor.created_at);
+            });
+        }
+        
+        // Logika Lencana AWOS (OFFLINE jika salah satu mati)
+        const badgeAwos = document.getElementById('badge-awos');
+        const badgeTextAwos = document.getElementById('badge-text-awos');
+        const dotAwos = document.getElementById('dot-awos');
+        const pingAwos = document.getElementById('last-ping-awos');
+        
+        if (badgeAwos && badgeTextAwos && dotAwos) {
+            badgeAwos.className = "mt-4 px-5 py-2 rounded-full border flex items-center justify-center gap-2 transition-all";
+            dotAwos.className = "w-2.5 h-2.5 rounded-full";
+            
+            if (onlineCount === 3) {
+                badgeAwos.classList.add("bg-emerald-500/10", "border-emerald-500/30");
+                dotAwos.classList.add("bg-emerald-500", "shadow-[0_0_8px_rgba(16,185,129,0.8)]");
+                badgeTextAwos.className = "text-xs font-bold tracking-widest text-emerald-400";
+                badgeTextAwos.innerText = `ONLINE (3/3)`;
+            } else {
+                badgeAwos.classList.add("bg-rose-500/10", "border-rose-500/30");
+                dotAwos.classList.add("bg-rose-500", "animate-pulse");
+                badgeTextAwos.className = "text-xs font-bold tracking-widest text-rose-400";
+                badgeTextAwos.innerText = "OFFLINE (DISCONNECT)";
+            }
+        }
+        if (pingAwos) pingAwos.innerText = waktuUpdateAwos;
+
+        // ==========================================
+        // 3. TARIK KUALITAS UDARA BAM (Timeout 2 Jam)
+        // ==========================================
+        let resBAM = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/bam_trend?select=*&order=id.desc&limit=1', { headers: localHeaders });
         let dataBAM = await resBAM.json();
         if(dataBAM.length > 0) {
             let data = dataBAM[0];
-            updateDenganPeringatan("bam_pm25", data.pm25, 50, 'text-purple-400');
+            updateDenganPeringatan("bam_pm25", data.pm25, 100, 'text-purple-400');
             document.getElementById("bam_flow").innerText = data.flow_rate;
-            updateStatusAlat('bam', data.status_alat, data.waktu_data);
-            if (data.waktu_data !== undefined) document.getElementById("bam_waktu").innerText = data.waktu_data;
+            
+            // Validasi Null, Anomali, & Timeout (2 Jam)
+            let isExpiredBAM = false;
+            if (data.created_at) {
+                let dataTimeBAM = new Date(data.created_at).getTime();
+                isExpiredBAM = ((new Date().getTime() - dataTimeBAM) / 3600000) > 2; // Timeout 2 Jam
+            } else isExpiredBAM = true;
+
+            let isNullBAM = (data.pm25 == null || data.flow_rate == null);
+            let isAnomalyBAM = (parseFloat(data.pm25) > 10000);
+
+            let finalStatusBAM = (isExpiredBAM || isNullBAM || isAnomalyBAM || data.status_alat == 0) ? 0 : 1;
+            
+            let waktuBAM = formatWaktuSeragam(data.waktu_data || data.created_at);
+            updateStatusAlat('bam', finalStatusBAM, waktuBAM);
+            if (data.waktu_data !== undefined) document.getElementById("bam_waktu").innerText = waktuBAM;
         }
 
-        // 4. Tarik ARG (Mengambil 1 data terbaru per stasiun & Menyuntikkan Koordinat Statis)
-        // Kamus stasiun ini sekaligus menghilangkan duplikat "ARG Timbau"
+        // ==========================================
+        // 4. TARIK BATERAI MPPT (Dashboard Bawah)
+        // ==========================================
+        let resMPPT = await fetch('https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/mppt_data?select=*&order=id.desc&limit=1', { headers: localHeaders });
+        let dataMPPTArr = await resMPPT.json();
+        if (dataMPPTArr.length > 0) {
+            let mpptData = dataMPPTArr[0];
+            let socVal = parseFloat(mpptData.mppt_soc);
+            let socTextEl = document.getElementById("ribbon_soc_text");
+            if (socTextEl) socTextEl.innerText = !isNaN(socVal) ? Math.round(socVal) : "--";
+            
+            let voltEl = document.getElementById("ribbon_volt");
+            if (voltEl) voltEl.innerText = mpptData.mppt_volt !== undefined && mpptData.mppt_volt !== null ? mpptData.mppt_volt : "--";
+            
+            let bar = document.getElementById("ribbon_soc_bar");
+            if (bar) {
+                if (!isNaN(socVal)) {
+                    bar.style.width = `${socVal}%`;
+                    bar.className = "h-full transition-all duration-700 ";
+                    if (socVal > 60) bar.classList.add("bg-emerald-500");
+                    else if (socVal > 25) bar.classList.add("bg-yellow-400");
+                    else bar.classList.add("bg-rose-500", "animate-pulse");
+                } else {
+                    bar.style.width = "0%";
+                    bar.className = "h-full bg-slate-600 transition-all duration-700";
+                }
+            }
+
+            let modeStr = mpptData.mppt_mode ? mpptData.mppt_mode : "--";
+            let modeEl = document.getElementById("ribbon_mode");
+            let modeIcon = document.getElementById("ribbon_mode_icon");
+            if (modeEl && modeIcon) {
+                modeEl.innerText = modeStr;
+                if (modeStr.toLowerCase().includes("boost")) {
+                    modeEl.className = "text-sm font-bold text-yellow-400 uppercase tracking-wider";
+                    modeIcon.className = "fas fa-bolt text-yellow-400 animate-pulse";
+                } else if (modeStr.toLowerCase().includes("float")) {
+                    modeEl.className = "text-sm font-bold text-emerald-400 uppercase tracking-wider";
+                    modeIcon.className = "fas fa-battery-full text-emerald-400";
+                } else {
+                    modeEl.className = "text-sm font-bold text-slate-300 uppercase tracking-wider";
+                    modeIcon.className = "fas fa-battery-half text-slate-500";
+                }
+            }
+
+            let aiEl = document.getElementById("ribbon_ai");
+            if (aiEl) {
+                let aiText = mpptData.mppt_prediksi ? mpptData.mppt_prediksi : "Menunggu kalkulasi...";
+                aiEl.innerText = aiText;
+                if (aiText.toLowerCase().includes("habis") || aiText.toLowerCase().includes("kritis")) {
+                    aiEl.className = "text-sm font-bold text-rose-400 z-10 animate-pulse";
+                } else if (aiText.toLowerCase().includes("penuh") || aiText.toLowerCase().includes("charging")) {
+                    aiEl.className = "text-sm font-bold text-emerald-400 z-10";
+                } else {
+                    aiEl.className = "text-sm font-bold text-slate-300 z-10";
+                }
+            }
+
+            let ribbonUpdate = document.getElementById("ribbon_update");
+            if (ribbonUpdate) {
+                let timeStr = "--";
+                if (mpptData.waktu_alat) timeStr = formatWaktuSeragam(mpptData.waktu_alat);
+                else if (mpptData.created_at) timeStr = formatWaktuSeragam(mpptData.created_at);
+                ribbonUpdate.innerText = timeStr;
+            }
+        }
+
+        // ==========================================
+        // 5. TARIK STATUS JARINGAN ARG KALTIM
+        // ==========================================
         const referensiARG = {
             "ARG Ancalong": { lat: 0.44178100, lon: 116.67340000 },
             "ARG Babulu": { lat: -1.53039450, lon: 116.40295040 },
@@ -559,16 +731,14 @@ async function fetchLiveDashboard() {
         const daftarStasiun = Object.keys(referensiARG);
         let dataARGGabungan = [];
 
-        // Tarik data paralel untuk 17 stasiun
         const argPromises = daftarStasiun.map(stasiun => {
-            return fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/arg_trend?select=*&nama_stasiun=eq.${encodeURIComponent(stasiun)}&order=id.desc&limit=1`, { headers: supabaseHeaders })
+            return fetch(`https://kyizliqcqoeynhoybghv.supabase.co/rest/v1/arg_trend?select=*&nama_stasiun=eq.${encodeURIComponent(stasiun)}&order=id.desc&limit=1`, { headers: localHeaders })
                 .then(res => res.json())
                 .then(data => data.length > 0 ? data[0] : null);
         });
 
         const argResults = await Promise.all(argPromises);
 
-        // Pasangkan data dari awan dengan koordinat lokal
         argResults.forEach((st) => {
             if (st && st.nama_stasiun) {
                 dataARGGabungan.push({
@@ -577,7 +747,7 @@ async function fetchLiveDashboard() {
                     suhu_panel: st.suhu_panel,
                     tegangan_baterai: st.tegangan_baterai,
                     waktu_rekam: st.waktu,
-                    koordinat: referensiARG[st.nama_stasiun] // Suntikkan koordinat dari kamus di atas
+                    koordinat: referensiARG[st.nama_stasiun]
                 });
             }
         });
@@ -588,7 +758,6 @@ async function fetchLiveDashboard() {
             renderArgStatusGrid(dataARGGabungan);
         }
 
-        // Indikator Sukses
         setTimeout(() => indikator.classList.remove('animate-ping'), 300);
         indikator.classList.replace('bg-red-500', 'bg-green-500');
         statusKoneksi.innerText = "Sistem Online (Cloud)";
