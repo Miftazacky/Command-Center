@@ -86,6 +86,9 @@ function updateStatusAlat(idAlat, statusCode, waktuTerakhir) {
     if (ping) ping.innerText = waktuTerakhir || "--";
 }
 
+// ==========================================
+// FUNGSI RENDER GRID ARG (NOC)
+// ==========================================
 function renderArgStatusGrid(dataARG) {
     const container = document.getElementById('arg-status-grid');
     if(!container) return;
@@ -94,38 +97,59 @@ function renderArgStatusGrid(dataARG) {
 
     dataARG.forEach(st => {
         let baterai = parseFloat(st.tegangan_baterai);
-        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Normal
-        let ikonBaterai = '<i class="fas fa-battery-full"></i>';
-        let warnaWaktu = "text-slate-400"; // Warna waktu normal
+        let hujan = parseFloat(st.total_hujan);
+        let suhu = parseFloat(st.suhu_panel);
         
-        // Logika Status Kritis
-        if (baterai < 11.5) {
-            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse"; // Warning
-            ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
-            warnaWaktu = "text-yellow-500/70";
-        } else if (isNaN(baterai) || st.waktu_rekam == null) {
-            statusWarna = "bg-red-900/40 border-red-500 text-red-500"; // Offline
-            ikonBaterai = '<i class="fas fa-battery-empty text-red-500"></i>';
-            warnaWaktu = "text-red-400/80";
+        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Default: Normal
+        let ikonBaterai = '<i class="fas fa-battery-full"></i>';
+        let warnaWaktu = "text-slate-400"; 
+        
+        // 1. Logika Timeout 1 Jam
+        let isExpired = false;
+        if (st.waktu_rekam) {
+            let dataTime = new Date(st.waktu_rekam).getTime();
+            // Jika selisih waktu saat ini dengan data terakhir > 1 jam (3600000 milidetik)
+            isExpired = ((new Date().getTime() - dataTime) / 3600000) > 1;
+        } else {
+            isExpired = true; // Jika waktu rekam tidak ada sama sekali
         }
 
-        // Format Waktu Rekam: Mengubah "2026-09-24T07:57:00+00:00" menjadi "24/09 15:57" (Dikonversi ke WITA)
+        // 2. Logika Pengecekan Null / Data Kosong
+        let isNull = (
+            st.tegangan_baterai == null || isNaN(baterai) ||
+            st.total_hujan == null || isNaN(hujan) ||
+            st.suhu_panel == null || isNaN(suhu)
+        );
+
+        // 3. Eksekusi Indikator Visual
+        let nilaiBateraiTampil = baterai;
+        
+        if (isExpired || isNull) {
+            // --- OFFLINE / DISCONNECT ---
+            statusWarna = "bg-red-900/40 border-red-500 text-red-500";
+            ikonBaterai = '<i class="fas fa-battery-empty text-red-500 animate-pulse"></i>';
+            warnaWaktu = "text-red-400/80";
+            
+            // Jika sekadar expired (data lama), tetap tampilkan voltase lama. Jika null, tampilkan '--'
+            nilaiBateraiTampil = isNull ? '--' : baterai; 
+            
+        } else if (baterai < 11.0) {
+            // --- WARNING (BATERAI < 11V) ---
+            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse";
+            ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
+            warnaWaktu = "text-yellow-500/70";
+        }
+
+        // 4. Format Waktu Rekam (Dikonversi ke WITA)
         let waktuStr = "--/-- --:--";
         if (st.waktu_rekam) {
             try {
-                // Buat objek Date dari string ISO 8601 Supabase (sudah mengerti +00:00)
                 let d = new Date(st.waktu_rekam); 
-                
-                // Cek apakah tanggal valid
                 if (!isNaN(d.getTime())) {
-                    // Ekstrak hari dan bulan (padStart agar selalu 2 digit)
                     let tgl = String(d.getDate()).padStart(2, '0');
                     let bln = String(d.getMonth() + 1).padStart(2, '0');
-                    
-                    // Ekstrak jam dan menit (otomatis menyesuaikan zona waktu browser lokal / WITA)
                     let jam = String(d.getHours()).padStart(2, '0');
                     let mnt = String(d.getMinutes()).padStart(2, '0');
-                    
                     waktuStr = `${tgl}/${bln} ${jam}:${mnt}`;
                 } else {
                     waktuStr = "Invalid Date";
@@ -135,17 +159,16 @@ function renderArgStatusGrid(dataARG) {
             }
         }
 
+        // 5. Rakit Kotak (Card) HTML
         const box = document.createElement('div');
-        // PERUBAHAN: Padding lebih besar (p-3 md:p-4) dan efek hover (zoom) yang elegan
         box.className = `p-3 md:p-4 rounded-xl border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden transition-transform duration-300 hover:scale-105`;
         
-        // PERUBAHAN: Teks judul stasiun & tegangan diperbesar agar tidak tenggelam di kotak yang luas
         box.innerHTML = `
             <div class="text-sm md:text-base font-bold truncate mb-2" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
             
             <div class="flex justify-between items-end mt-1 pt-3 border-t border-slate-700/50">
                 <span class="text-xs font-mono tracking-tight font-semibold" title="Tegangan Baterai">
-                    ${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}
+                    ${ikonBaterai} ${nilaiBateraiTampil === '--' ? '--' : nilaiBateraiTampil + 'V'}
                 </span>
                 <span class="text-[10px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
                     <i class="fa-regular fa-clock"></i> ${waktuStr}
