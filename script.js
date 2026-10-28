@@ -86,9 +86,6 @@ function updateStatusAlat(idAlat, statusCode, waktuTerakhir) {
     if (ping) ping.innerText = waktuTerakhir || "--";
 }
 
-// ==========================================
-// FUNGSI RENDER GRID ARG (NOC)
-// ==========================================
 function renderArgStatusGrid(dataARG) {
     const container = document.getElementById('arg-status-grid');
     if(!container) return;
@@ -97,59 +94,38 @@ function renderArgStatusGrid(dataARG) {
 
     dataARG.forEach(st => {
         let baterai = parseFloat(st.tegangan_baterai);
-        let hujan = parseFloat(st.total_hujan);
-        let suhu = parseFloat(st.suhu_panel);
-        
-        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Default: Normal
+        let statusWarna = "bg-green-900/40 border-green-500 text-green-400"; // Normal
         let ikonBaterai = '<i class="fas fa-battery-full"></i>';
-        let warnaWaktu = "text-slate-400"; 
+        let warnaWaktu = "text-slate-400"; // Warna waktu normal
         
-        // 1. Logika Timeout 1 Jam
-        let isExpired = false;
-        if (st.waktu_rekam) {
-            let dataTime = new Date(st.waktu_rekam).getTime();
-            // Jika selisih waktu saat ini dengan data terakhir > 1 jam (3600000 milidetik)
-            isExpired = ((new Date().getTime() - dataTime) / 3600000) > 1;
-        } else {
-            isExpired = true; // Jika waktu rekam tidak ada sama sekali
-        }
-
-        // 2. Logika Pengecekan Null / Data Kosong
-        let isNull = (
-            st.tegangan_baterai == null || isNaN(baterai) ||
-            st.total_hujan == null || isNaN(hujan) ||
-            st.suhu_panel == null || isNaN(suhu)
-        );
-
-        // 3. Eksekusi Indikator Visual
-        let nilaiBateraiTampil = baterai;
-        
-        if (isExpired || isNull) {
-            // --- OFFLINE / DISCONNECT ---
-            statusWarna = "bg-red-900/40 border-red-500 text-red-500";
-            ikonBaterai = '<i class="fas fa-battery-empty text-red-500 animate-pulse"></i>';
-            warnaWaktu = "text-red-400/80";
-            
-            // Jika sekadar expired (data lama), tetap tampilkan voltase lama. Jika null, tampilkan '--'
-            nilaiBateraiTampil = isNull ? '--' : baterai; 
-            
-        } else if (baterai < 11.0) {
-            // --- WARNING (BATERAI < 11V) ---
-            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse";
+        // Logika Status Kritis
+        if (baterai < 11.5) {
+            statusWarna = "bg-yellow-900/40 border-yellow-500 text-yellow-400 animate-pulse"; // Warning
             ikonBaterai = '<i class="fas fa-battery-quarter text-yellow-500"></i>';
             warnaWaktu = "text-yellow-500/70";
+        } else if (isNaN(baterai) || st.waktu_rekam == null) {
+            statusWarna = "bg-red-900/40 border-red-500 text-red-500"; // Offline
+            ikonBaterai = '<i class="fas fa-battery-empty text-red-500"></i>';
+            warnaWaktu = "text-red-400/80";
         }
 
-        // 4. Format Waktu Rekam (Dikonversi ke WITA)
+        // Format Waktu Rekam: Mengubah "2026-09-24T07:57:00+00:00" menjadi "24/09 15:57" (Dikonversi ke WITA)
         let waktuStr = "--/-- --:--";
         if (st.waktu_rekam) {
             try {
+                // Buat objek Date dari string ISO 8601 Supabase (sudah mengerti +00:00)
                 let d = new Date(st.waktu_rekam); 
+                
+                // Cek apakah tanggal valid
                 if (!isNaN(d.getTime())) {
+                    // Ekstrak hari dan bulan (padStart agar selalu 2 digit)
                     let tgl = String(d.getDate()).padStart(2, '0');
                     let bln = String(d.getMonth() + 1).padStart(2, '0');
+                    
+                    // Ekstrak jam dan menit (otomatis menyesuaikan zona waktu browser lokal / WITA)
                     let jam = String(d.getHours()).padStart(2, '0');
                     let mnt = String(d.getMinutes()).padStart(2, '0');
+                    
                     waktuStr = `${tgl}/${bln} ${jam}:${mnt}`;
                 } else {
                     waktuStr = "Invalid Date";
@@ -159,16 +135,17 @@ function renderArgStatusGrid(dataARG) {
             }
         }
 
-        // 5. Rakit Kotak (Card) HTML
         const box = document.createElement('div');
+        // PERUBAHAN: Padding lebih besar (p-3 md:p-4) dan efek hover (zoom) yang elegan
         box.className = `p-3 md:p-4 rounded-xl border ${statusWarna} flex flex-col justify-between shadow-sm relative overflow-hidden transition-transform duration-300 hover:scale-105`;
         
+        // PERUBAHAN: Teks judul stasiun & tegangan diperbesar agar tidak tenggelam di kotak yang luas
         box.innerHTML = `
             <div class="text-sm md:text-base font-bold truncate mb-2" title="${st.nama_stasiun}">${st.nama_stasiun.replace("ARG ", "")}</div>
             
             <div class="flex justify-between items-end mt-1 pt-3 border-t border-slate-700/50">
                 <span class="text-xs font-mono tracking-tight font-semibold" title="Tegangan Baterai">
-                    ${ikonBaterai} ${nilaiBateraiTampil === '--' ? '--' : nilaiBateraiTampil + 'V'}
+                    ${ikonBaterai} ${isNaN(baterai) ? '--' : baterai + 'V'}
                 </span>
                 <span class="text-[10px] font-mono ${warnaWaktu} tracking-tighter" title="Pembaruan Terakhir">
                     <i class="fa-regular fa-clock"></i> ${waktuStr}
@@ -901,76 +878,94 @@ function updateArgData(argArray) {
 
     argArray.forEach(station => {
         let nama = station.nama_stasiun || "Unknown";
-        let hujan = parseFloat(station.total_hujan) || 0;
-        let suhu = parseFloat(station.suhu_panel) || 0;
-        let bat = parseFloat(station.tegangan_baterai) || 0;
+        let hujan = parseFloat(station.total_hujan);
+        let suhu = parseFloat(station.suhu_panel);
+        let bat = parseFloat(station.tegangan_baterai);
         let lat = parseFloat(station.koordinat.lat);
         let lon = parseFloat(station.koordinat.lon);
-        // Sesuaikan nama variabel waktu_rekam dengan output JSON Anda
-        let waktu = station.waktu_rekam ? station.waktu_rekam.replace('T', ' ').replace('.000Z', '') : "-";
+        
+        let waktuRaw = station.waktu_rekam;
+        let waktu = waktuRaw ? waktuRaw.replace('T', ' ').replace('.000Z', '') : "-";
 
         // ==========================================
+        // LOGIKA PENGAMAN BARU (Timeout 1 Jam & Null)
+        // ==========================================
+        let isExpired = false;
+        if (waktuRaw) {
+            let dataTime = new Date(waktuRaw).getTime();
+            isExpired = ((new Date().getTime() - dataTime) / 3600000) > 1;
+        } else {
+            isExpired = true;
+        }
+
+        let isNull = (
+            station.tegangan_baterai == null || isNaN(bat) ||
+            station.total_hujan == null || isNaN(hujan) ||
+            station.suhu_panel == null || isNaN(suhu)
+        );
+
+        let isOffline = isExpired || isNull;
+        
+        // Tampilan angka jika offline/null
+        let tampilHujan = (isOffline && isNull) ? '--' : (isNaN(hujan) ? 0 : hujan);
+        let tampilSuhu = (isOffline && isNull) ? '--' : (isNaN(suhu) ? 0 : suhu);
+        let tampilBat = (isOffline && isNull) ? '--' : (isNaN(bat) ? 0 : bat);
+
         // ==========================================
         // A. UPDATE PETA (MARKER & POP-UP)
         // ==========================================
         if (!isNaN(lat) && !isNaN(lon)) {
-            
-            // 1. Logika Indikator Cerdas (Warna & Status)
-            let markerColor = '';
+            let markerBg = '';
+            let markerBorder = '#1e293b'; // Default border gelap
             let statusCuaca = '';
 
-            if (hujan === 0) {
-                markerColor = '#94a3b8'; // Abu-abu (Cerah)
+            if (isOffline) {
+                markerBg = '#334155';     // Abu-abu Gelap (Mati/Kosong)
+                markerBorder = '#ef4444'; // Garis tepi Merah (Error)
+                statusCuaca = 'OFFLINE';
+            } else if (hujan === 0) {
+                markerBg = '#94a3b8';     // Abu-abu Terang (Cerah)
                 statusCuaca = 'Cerah';
             } else if (hujan > 0 && hujan <= 5) {
-                markerColor = '#38bdf8'; // Biru Muda (Hujan Ringan)
+                markerBg = '#38bdf8';     // Biru Muda
                 statusCuaca = 'Hujan Ringan';
             } else if (hujan > 5 && hujan <= 10) {
-                markerColor = '#2563eb'; // Biru Tua (Hujan Sedang)
+                markerBg = '#2563eb';     // Biru Tua
                 statusCuaca = 'Hujan Sedang';
             } else {
-                markerColor = '#ef4444'; // Merah (Hujan Lebat)
+                markerBg = '#ef4444';     // Merah Murni
                 statusCuaca = 'Hujan Lebat';
             }
 
-            // 2. Estetika Peta: Custom Icon (Flat & Clean)
             let customIcon = L.divIcon({
                 className: 'custom-arg-marker',
-                html: `
-                    <div style="
-                        width: 12px; height: 12px;
-                        background-color: ${markerColor};
-                        border-radius: 50%;
-                        border: 2px solid #1e293b; 
-                    "></div>
-                `,
+                html: `<div style="width: 12px; height: 12px; background-color: ${markerBg}; border-radius: 50%; border: 2px solid ${markerBorder}; ${isOffline ? 'animation: pulse 2s infinite;' : ''}"></div>`,
                 iconSize: [12, 12],
                 iconAnchor: [6, 6]
             });
 
-            // 3. Estetika Peta: Pop-up Mini Dashboard (Tanpa Bingkai Putih)
-            let batColor = bat < 11.5 ? '#ef4444' : '#4ade80';
+            // Logika Warna Baterai di Pop-up Peta (Batas 11.0V)
+            let batColor = isOffline ? '#ef4444' : (bat < 11.0 ? '#eab308' : '#4ade80');
+            
+            // Pewarnaan teks status di popup (agar teks OFFLINE jadi merah)
+            let statusTextColor = isOffline ? '#ef4444' : markerBg;
+            
             let popupContent = `
                 <div style="background: #1e293b; color: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #334155; font-family: sans-serif; min-width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.7);">
-                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: ${markerColor}; border-bottom: 1px solid #334155; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">${nama}</h4>
-                    <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Status:</span> <b style="color: ${markerColor};">${statusCuaca}</b></div>
-                    <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Hujan:</span> <b>${hujan} mm</b></div>
-                    <div style="font-size: 12px; display: flex; justify-content: space-between;"><span>Baterai:</span> <b style="color: ${batColor};">${bat} V</b></div>
+                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: ${statusTextColor}; border-bottom: 1px solid #334155; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">${nama}</h4>
+                    <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Status:</span> <b style="color: ${statusTextColor};">${statusCuaca}</b></div>
+                    <div style="font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between;"><span>Hujan:</span> <b>${tampilHujan} mm</b></div>
+                    <div style="font-size: 12px; display: flex; justify-content: space-between;"><span>Baterai:</span> <b style="color: ${batColor};">${tampilBat} V</b></div>
                 </div>
             `;
 
-            // 4. Menerapkan ke Peta
             if (argMarkers[nama]) {
                 argMarkers[nama].setLatLng([lat, lon]);
                 argMarkers[nama].setIcon(customIcon);
                 argMarkers[nama].setPopupContent(popupContent);
             } else {
                 argMarkers[nama] = L.marker([lat, lon], { icon: customIcon })
-                    .bindPopup(popupContent, {
-                        closeButton: false, // Menghilangkan tombol silang bawaan agar lebih rapi
-                        offset: [0, -5],
-                        className: 'popup-arg-dark'
-                    })
+                    .bindPopup(popupContent, { closeButton: false, offset: [0, -5], className: 'popup-arg-dark' })
                     .addTo(argMap);
             }
         }
@@ -978,26 +973,31 @@ function updateArgData(argArray) {
         // ==========================================
         // B. UPDATE KARTU (CARD VIEW)
         // ==========================================
+        let cardBg = '';
+        let rainColor = '';
         
-        // 1. Efek Visual Cerdas (Glow) jika hujan > 0
-        let cardBg = hujan > 0 
-            ? 'bg-blue-900/40 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)]' // Menyala biru terang jika hujan
-            : 'bg-slate-800 border-slate-700 shadow-md hover:border-slate-500';      // Gelap elegan jika cerah
-            
-        let rainColor = hujan > 0 ? 'text-blue-400 font-extrabold' : 'text-slate-300';
+        if (isOffline) {
+            cardBg = 'bg-red-900/10 border-red-500/30 opacity-70'; // Gelap & pudar jika mati
+            rainColor = 'text-red-500/50';
+        } else if (hujan > 0) {
+            cardBg = 'bg-blue-900/40 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.6)]';
+            rainColor = 'text-blue-400 font-extrabold';
+        } else {
+            cardBg = 'bg-slate-800 border-slate-700 shadow-md hover:border-slate-500';
+            rainColor = 'text-slate-300';
+        }
         
-        // Tambahan Bonus: Baterai berkedip jika kritis
-        let batClass = bat < 11.5 ? 'text-red-400 font-bold animate-pulse' : 'text-slate-400';
+        // Baterai Kritis < 11.0V (Atau Offline)
+        let batClass = isOffline ? 'text-red-500 font-bold' : (bat < 11.0 ? 'text-yellow-400 font-bold animate-pulse' : 'text-slate-400');
 
-        // 2. Animasi Kartu (Hover Effects): Menggunakan transform, -translate-y-2, dan duration-300
         cardHTML += `
             <div class="rounded-xl border ${cardBg} p-4 flex flex-col items-center justify-center transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer">
                 <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2 text-center h-8">${nama}</span>
-                <span class="${rainColor} text-3xl font-mono mb-1 transition-colors duration-300">${hujan}</span>
+                <span class="${rainColor} text-3xl font-mono mb-1 transition-colors duration-300">${tampilHujan}</span>
                 <span class="text-slate-500 text-[10px] uppercase tracking-widest mb-4">Hujan (mm)</span>
                 <div class="w-full flex justify-between text-xs border-t border-slate-700/50 pt-2">
-                    <span class="${batClass}"><i class="fa-solid fa-battery-half mr-1"></i>${bat}V</span>
-                    <span class="text-slate-400"><i class="fa-solid fa-solar-panel mr-1"></i>${suhu}°C</span>
+                    <span class="${batClass}"><i class="fa-solid ${isOffline ? 'fa-link-slash' : 'fa-battery-half'} mr-1"></i>${tampilBat}${tampilBat !== '--' ? 'V' : ''}</span>
+                    <span class="text-slate-400"><i class="fa-solid fa-solar-panel mr-1"></i>${tampilSuhu}${tampilSuhu !== '--' ? '°C' : ''}</span>
                 </div>
             </div>
         `;
@@ -1005,18 +1005,21 @@ function updateArgData(argArray) {
         // ==========================================
         // C. UPDATE TABEL (TABLE VIEW)
         // ==========================================
+        let trClass = isOffline ? 'bg-red-900/10 text-slate-500' : 'hover:bg-slate-700/50 transition-colors';
+        let hujanColClass = isOffline ? 'text-red-500/50' : (hujan > 0 ? 'text-blue-400 font-bold' : 'text-slate-300');
+        let batColClass = isOffline ? 'text-red-500' : (bat < 11.0 ? 'text-yellow-400 font-bold' : 'text-slate-300');
+
         tableHTML += `
-            <tr class="hover:bg-slate-700/50 transition-colors">
-                <td class="px-6 py-3 font-medium text-slate-200">${nama}</td>
-                <td class="px-6 py-3 font-mono ${hujan > 0 ? 'text-blue-400 font-bold' : 'text-slate-300'}">${hujan}</td>
-                <td class="px-6 py-3 text-slate-300">${suhu}</td>
-                <td class="px-6 py-3 font-mono ${bat < 11.5 ? 'text-red-400 font-bold' : 'text-slate-300'}">${bat}</td>
-                <td class="px-6 py-3 text-xs text-slate-400">${waktu}</td>
+            <tr class="${trClass}">
+                <td class="px-6 py-3 font-medium ${isOffline ? 'text-red-400/70' : 'text-slate-200'}">${nama} ${isOffline ? '<span class="ml-2 text-[10px] bg-red-900/50 text-red-400 px-2 py-0.5 rounded uppercase">Offline</span>' : ''}</td>
+                <td class="px-6 py-3 font-mono ${hujanColClass}">${tampilHujan}</td>
+                <td class="px-6 py-3 ${isOffline ? 'text-slate-500' : 'text-slate-300'}">${tampilSuhu}</td>
+                <td class="px-6 py-3 font-mono ${batColClass}">${tampilBat}</td>
+                <td class="px-6 py-3 text-xs ${isOffline ? 'text-red-400/50' : 'text-slate-400'}">${waktu}</td>
             </tr>
         `;
     });
 
-    // Suntikkan HTML yang sudah dirakit ke dalam layar
     document.getElementById('arg-card-container').innerHTML = cardHTML;
     document.getElementById('arg-table-body').innerHTML = tableHTML;
 }
